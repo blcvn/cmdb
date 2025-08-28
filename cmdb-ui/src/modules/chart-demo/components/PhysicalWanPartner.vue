@@ -1,10 +1,6 @@
 <template>
-  <div class="network-diagram">
-    <h2>Network Topology Diagram</h2>
-    <div
-      id="myDiagramDiv"
-      style="width: 100%; height: 600px; border: 1px solid #ccc;"
-    />
+  <div class="physicalWan-diagram">
+    <div id="physicalWanDiv" style="width: 100%; height: 700px; background-color: #f9f9f9"></div>
   </div>
 </template>
 
@@ -12,308 +8,328 @@
 import * as go from 'gojs'
 
 export default {
-  name: 'NetworkDiagram',
+  name: 'PhysicalWanPartner',
   data() {
     return {
-      diagram: null
+      diagram: null,
     }
   },
   mounted() {
+    console.log('Mounting PhysicalWanPartner, div:', document.getElementById('physicalWanDiv')) // Debug
     this.initDiagram()
+  },
+  beforeDestroy() {
+    if (this.diagram) {
+      this.diagram.div = null
+      console.log('PhysicalWanPartner destroyed') // Debug
+    }
   },
   methods: {
     initDiagram() {
       const $ = go.GraphObject.make
-
-      // Initialize the diagram
-      this.diagram = $(go.Diagram, 'myDiagramDiv', {
+      this.diagram = $(go.Diagram, 'physicalWanDiv', {
         'undoManager.isEnabled': true,
-        layout: $(go.Layout),
-        allowMove: true,
-        allowCopy: false,
-        allowDelete: false
+        layout: $(go.ForceDirectedLayout), // Improved layout as fallback
+        'grid.visible': true, // Enable grid
+        'grid.gridCellSize': new go.Size(20, 20), // Set grid cell size
+        // 'grid.color': '#ddd', // Light gray grid lines
       })
 
-      // Define node templates
-      this.diagram.nodeTemplateMap.add('switch',
-        $(go.Node, 'Auto',
-          $(go.Shape, 'RoundedRectangle', {
-            fill: 'white',
-            stroke: 'black',
-            strokeWidth: 2,
-            width: 120,
-            height: 80
-          }),
-          $(go.Panel, 'Vertical',
-            $(go.TextBlock, {
-              font: 'bold 12px sans-serif',
-              margin: 2
-            }, new go.Binding('text', 'name')),
-            $(go.Panel, 'Horizontal',
-              $(go.Shape, 'Rectangle', {
+      // Router Node Template
+      this.diagram.nodeTemplateMap.add(
+        'router',
+        $(
+          go.Node,
+          'Vertical',
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Panel,
+            'Auto',
+            // $(go.Shape, 'Cylinder1', {
+            //   fill: '#E8E8E8',
+            //   stroke: '#999',
+            //   strokeWidth: 2,
+            //   width: 80,
+            //   height: 60,
+            // }),
+            $(
+              go.Panel,
+              'Spot',
+              { width: 80, height: 60 },
+              $(go.Shape, 'LineH', {
+                stroke: 'red',
+                strokeWidth: 3,
                 width: 30,
+                height: 2,
+                alignment: go.Spot.Center,
+              }),
+              $(go.Shape, 'LineV', {
+                stroke: 'red',
+                strokeWidth: 3,
+                width: 2,
+                height: 30,
+                alignment: go.Spot.Center,
+              }),
+              $(go.Shape, {
+                stroke: 'red',
+                strokeWidth: 3,
+                geometry: go.Geometry.parse('M -15 -15 L 15 15'),
+                alignment: go.Spot.Center,
+              }),
+              $(go.Shape, {
+                stroke: 'red',
+                strokeWidth: 3,
+                geometry: go.Geometry.parse('M 15 -15 L -15 15'),
+                alignment: go.Spot.Center,
+              })
+            )
+          ),
+          $(
+            go.TextBlock,
+            {
+              font: 'bold 10px Arial',
+              stroke: '#333',
+              textAlign: 'center',
+              margin: new go.Margin(5, 0, 0, 0),
+            },
+            new go.Binding('text', 'label')
+          ),
+          $(
+            go.TextBlock,
+            {
+              font: '9px Arial',
+              stroke: '#666',
+              textAlign: 'center',
+            },
+            new go.Binding('text', 'ip')
+          )
+        )
+      )
+
+      // Switch Node Template
+      this.diagram.nodeTemplateMap.add(
+        'switch',
+        $(
+          go.Node,
+          'Vertical',
+          { locationSpot: go.Spot.Center },
+          $(
+            go.Panel,
+            'Auto',
+            $(go.Shape, 'RoundedRectangle', {
+              fill: '#D4D4D4',
+              stroke: '#666',
+              strokeWidth: 2,
+              width: 100,
+              height: 70,
+              parameter1: 8,
+            }),
+            $(
+              go.Panel,
+              'Table',
+              { width: 80, height: 50, margin: 10 },
+              $(go.Shape, 'LineH', {
+                row: 0,
+                column: 0,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 25,
+                height: 1,
+                margin: 2,
+              }),
+              $(go.Shape, 'LineH', {
+                row: 0,
+                column: 1,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 25,
+                height: 1,
+                margin: 2,
+              }),
+              $(go.Shape, 'LineH', {
+                row: 1,
+                column: 0,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 25,
+                height: 1,
+                margin: 2,
+              }),
+              $(go.Shape, 'LineH', {
+                row: 1,
+                column: 1,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 25,
+                height: 1,
+                margin: 2,
+              }),
+              $(go.Shape, 'LineV', {
+                row: 0,
+                rowSpan: 2,
+                column: 0,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 1,
                 height: 20,
-                fill: 'red',
-                stroke: 'black',
-                margin: 2
+                alignment: go.Spot.Left,
               }),
-              $(go.Shape, 'Rectangle', {
-                width: 30,
+              $(go.Shape, 'LineV', {
+                row: 0,
+                rowSpan: 2,
+                column: 1,
+                stroke: 'red',
+                strokeWidth: 2,
+                width: 1,
                 height: 20,
-                fill: 'white',
-                stroke: 'black',
-                margin: 2
+                alignment: go.Spot.Right,
               })
-            ),
-            $(go.TextBlock, {
-              font: '10px sans-serif',
-              margin: 2
-            }, new go.Binding('text', 'ip'))
+            )
+          ),
+          $(
+            go.TextBlock,
+            {
+              font: 'bold 10px Arial',
+              stroke: '#333',
+              textAlign: 'center',
+              margin: new go.Margin(5, 0, 0, 0),
+            },
+            new go.Binding('text', 'label')
+          ),
+          $(
+            go.TextBlock,
+            {
+              font: '9px Arial',
+              stroke: '#666',
+              textAlign: 'center',
+            },
+            new go.Binding('text', 'ip')
           )
         )
       )
 
-      this.diagram.nodeTemplateMap.add('router',
-        $(go.Node, 'Auto',
-          $(go.Shape, 'Rectangle', {
-            fill: 'lightgray',
-            stroke: 'black',
-            strokeWidth: 2,
-            width: 100,
-            height: 60
-          }),
-          $(go.Panel, 'Vertical',
-            $(go.TextBlock, {
-              font: 'bold 12px sans-serif',
-              margin: 2
-            }, new go.Binding('text', 'name')),
-            $(go.Panel, 'Horizontal',
-              $(go.Shape, 'Rectangle', {
-                width: 15,
-                height: 10,
-                fill: 'red',
-                stroke: 'black',
-                margin: 1
-              }),
-              $(go.Shape, 'Rectangle', {
-                width: 15,
-                height: 10,
-                fill: 'white',
-                stroke: 'black',
-                margin: 1
-              })
-            ),
-            $(go.TextBlock, {
-              font: '9px sans-serif',
-              margin: 2
-            }, new go.Binding('text', 'ip'))
-          )
-        )
-      )
-
-      this.diagram.nodeTemplateMap.add('endpoint',
-        $(go.Node, 'Auto',
-          $(go.Shape, 'Ellipse', {
-            fill: 'white',
-            stroke: 'black',
-            strokeWidth: 2,
-            width: 80,
-            height: 60
-          }),
-          $(go.Panel, 'Vertical',
-            $(go.Panel, 'Horizontal',
-              $(go.Shape, 'Rectangle', {
-                width: 20,
-                height: 15,
-                fill: 'red',
-                stroke: 'black',
-                margin: 1
-              }),
-              $(go.Shape, 'Rectangle', {
-                width: 20,
-                height: 15,
-                fill: 'white',
-                stroke: 'black',
-                margin: 1
-              })
-            ),
-            $(go.TextBlock, {
-              font: 'bold 10px sans-serif',
-              margin: 2
-            }, new go.Binding('text', 'name')),
-            $(go.TextBlock, {
-              font: '8px sans-serif',
-              margin: 1
-            }, new go.Binding('text', 'ip'))
-          )
-        )
-      )
-
-      // Define link template with straight lines
-      this.diagram.linkTemplate =
-        $(go.Link,
+      // Link Template (Solid)
+      this.diagram.linkTemplate = $(
+        go.Link,
+        {
+          routing: go.Link.Normal,
+          curve: go.Link.None,
+          selectable: false,
+        },
+        $(go.Shape, {
+          strokeWidth: 1.5,
+          stroke: '#333',
+        }),
+        $(
+          go.TextBlock,
           {
-            routing: go.Link.Normal, // Changed from AvoidsNodes to Normal for straight lines
-            curve: go.Link.None, // Changed from JumpOver to None
-            corner: 0, // Removed corner rounding
-            toShortLength: 4
+            font: '8px Arial',
+            stroke: '#000',
+            segmentOffset: new go.Point(0, -8),
+            segmentOrientation: go.Link.OrientUpright,
+            background: 'white',
+            margin: 1,
+          },
+          new go.Binding('text', 'label')
+        )
+      )
+
+      // Dashed Link Template
+      this.diagram.linkTemplateMap.add(
+        'dashed',
+        $(
+          go.Link,
+          {
+            routing: go.Link.Normal,
+            curve: go.Link.None,
+            selectable: false,
           },
           $(go.Shape, {
-            strokeWidth: 2,
-            stroke: 'black'
+            strokeWidth: 1.5,
+            stroke: '#666',
+            strokeDashArray: [4, 4],
           }),
-          $(go.TextBlock, {
-            textAlign: 'center',
-            font: '9px sans-serif',
-            stroke: 'blue',
-            segmentIndex: 0,
-            segmentOffset: new go.Point(0, -10),
-            segmentOrientation: go.Link.OrientUpright
-          }, new go.Binding('text', 'fromPort')),
-          $(go.TextBlock, {
-            textAlign: 'center',
-            font: '9px sans-serif',
-            stroke: 'blue',
-            segmentIndex: -1,
-            segmentOffset: new go.Point(0, -10),
-            segmentOrientation: go.Link.OrientUpright
-          }, new go.Binding('text', 'toPort'))
+          $(
+            go.TextBlock,
+            {
+              font: '8px Arial',
+              stroke: '#000',
+              segmentOffset: new go.Point(0, -8),
+              segmentOrientation: go.Link.OrientUpright,
+              background: 'white',
+              margin: 1,
+            },
+            new go.Binding('text', 'label')
+          )
         )
-
-      // Set up the model data
-      this.diagram.model = new go.GraphLinksModel(
-        [
-          // Switches
-          {
-            key: 'NCS-01',
-            category: 'switch',
-            name: 'NCS-01',
-            ip: 'IP: 10.29.2.86'
-          },
-          {
-            key: 'NCS-02',
-            category: 'switch',
-            name: 'NCS-02',
-            ip: 'IP: 10.29.2.87'
-          },
-
-          // Routers
-          {
-            key: 'C9300-01',
-            category: 'router',
-            name: 'C9300-01 WAN',
-            ip: 'IP: 10.29.2.90'
-          },
-          {
-            key: 'C9300-02',
-            category: 'router',
-            name: 'C9300-02 WAN',
-            ip: 'IP: 10.29.2.90'
-          },
-
-          // Endpoints
-          {
-            key: 'C4431_GDS_RT_04',
-            category: 'endpoint',
-            name: 'C4431_GDS_RT_04',
-            ip: 'IP: 10.29.2.94'
-          },
-          {
-            key: 'C4431_GDS_RT_02',
-            category: 'endpoint',
-            name: 'C4431_GDS_RT_02',
-            ip: 'IP: 10.29.2.92'
-          },
-          {
-            key: 'C4431_GDS_RT_03',
-            category: 'endpoint',
-            name: 'C4431_GDS_RT_03',
-            ip: 'IP: 10.29.2.93'
-          }
-        ],
-        [
-          // Links with port labels
-          {
-            from: 'NCS-01',
-            to: 'C9300-01',
-            fromPort: 'Te0/0/0/2',
-            toPort: 'Te1/1/6'
-          },
-          {
-            from: 'NCS-01',
-            to: 'C9300-02',
-            fromPort: 'Te0/0/1',
-            toPort: 'Te1/1/8'
-          },
-          {
-            from: 'NCS-02',
-            to: 'C9300-01',
-            fromPort: 'Te0/0/0/3',
-            toPort: 'Te1/1/8'
-          },
-          {
-            from: 'NCS-02',
-            to: 'C9300-02',
-            fromPort: 'Te0/0/2',
-            toPort: 'Te1/1/6'
-          },
-
-          // Connections to endpoints
-          {
-            from: 'C9300-01',
-            to: 'C4431_GDS_RT_04',
-            fromPort: 'Gi1/0/3',
-            toPort: 'Gi0/0/0'
-          },
-          {
-            from: 'C9300-02',
-            to: 'C4431_GDS_RT_02',
-            fromPort: 'Gi1/0/5',
-            toPort: 'Gi0/3/1'
-          },
-          {
-            from: 'C9300-02',
-            to: 'C4431_GDS_RT_03',
-            fromPort: 'Gi2/0/4',
-            toPort: 'Gi0/0/1'
-          },
-
-          // Cross connections
-          {
-            from: 'C9300-01',
-            to: 'C9300-02',
-            fromPort: 'StackWise',
-            toPort: 'StackWise'
-          }
-        ]
       )
 
-      // Position nodes to match the layout in the image
-      this.diagram.findNodeForKey('NCS-01').position = new go.Point(50, 50)
-      this.diagram.findNodeForKey('NCS-02').position = new go.Point(50, 300)
-      this.diagram.findNodeForKey('C9300-01').position = new go.Point(300, 50)
-      this.diagram.findNodeForKey('C9300-02').position = new go.Point(300, 300)
-      this.diagram.findNodeForKey('C4431_GDS_RT_04').position = new go.Point(550, 50)
-      this.diagram.findNodeForKey('C4431_GDS_RT_02').position = new go.Point(550, 200)
-      this.diagram.findNodeForKey('C4431_GDS_RT_03').position = new go.Point(550, 350)
-    }
-  }
+      // Node Data
+      const nodeDataArray = [
+        { key: 'NCS-01', label: 'NCS-01', ip: 'IP: 10.29.2.86', category: 'router' },
+        { key: 'NCS-02', label: 'NCS-02', ip: 'IP: 10.29.2.87', category: 'router' },
+        { key: 'C9300-01-WAN', label: 'C9300-01 WAN', ip: 'IP: 10.29.2.90', category: 'switch' },
+        { key: 'C9300-02-WAN', label: 'C9300-02 WAN', ip: 'IP: 10.29.2.90', category: 'switch' },
+        { key: 'C4431_GDS_RT_04', label: 'C4431_GDS_RT_04', ip: 'IP: 10.29.2.94', category: 'router' },
+        { key: 'C4431_GDS_RT_02', label: 'C4431_GDS_RT_02', ip: 'IP: 10.29.2.92', category: 'router' },
+        { key: 'C4431_GDS_RT_03', label: 'C4431_GDS_RT_03', ip: 'IP: 10.29.2.93', category: 'router' },
+      ]
+
+      // Link Data
+      const linkDataArray = [
+        { from: 'NCS-01', to: 'C9300-01-WAN', label: 'Te1/1/6' },
+        { from: 'NCS-02', to: 'C9300-02-WAN', label: 'Te1/1/8' },
+        { from: 'NCS-01', to: 'C9300-02-WAN', label: 'Te0/0/0/3' },
+        { from: 'NCS-02', to: 'C9300-01-WAN', label: 'Te0/0/0/2' },
+        { from: 'C9300-01-WAN', to: 'C9300-02-WAN', label: 'Stack', category: 'dashed' },
+        { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_04', label: 'Gi1/0/3' },
+        { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_02', label: 'Gi2/0/4' },
+        { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_03', label: 'Gi1/0/5' },
+        { from: 'NCS-01', to: 'C4431_GDS_RT_04', label: 'Te0/0/0/2', category: 'dashed' },
+        { from: 'NCS-02', to: 'C4431_GDS_RT_02', label: 'Te0/0/0/3', category: 'dashed' },
+        { from: 'NCS-01', to: 'C4431_GDS_RT_02', label: 'Po2', category: 'dashed' },
+        { from: 'NCS-02', to: 'C4431_GDS_RT_03', label: 'Po1', category: 'dashed' },
+      ]
+
+      this.diagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray)
+
+      // Set initial node positions
+      this.diagram.addDiagramListener('InitialLayoutCompleted', () => {
+        const ncs01 = this.diagram.findNodeForKey('NCS-01')
+        const ncs02 = this.diagram.findNodeForKey('NCS-02')
+        const sw01 = this.diagram.findNodeForKey('C9300-01-WAN')
+        const sw02 = this.diagram.findNodeForKey('C9300-02-WAN')
+        const rt04 = this.diagram.findNodeForKey('C4431_GDS_RT_04')
+        const rt02 = this.diagram.findNodeForKey('C4431_GDS_RT_02')
+        const rt03 = this.diagram.findNodeForKey('C4431_GDS_RT_03')
+        if (ncs01 && ncs02 && sw01 && sw02 && rt04 && rt02 && rt03) {
+          ncs01.location = new go.Point(100, 100)
+          ncs02.location = new go.Point(100, 400)
+          sw01.location = new go.Point(300, 200)
+          sw02.location = new go.Point(300, 400)
+          rt04.location = new go.Point(500, 100)
+          rt02.location = new go.Point(500, 300)
+          rt03.location = new go.Point(500, 500)
+        }
+      })
+    },
+  },
 }
 </script>
 
 <style scoped>
-.network-diagram {
+.physicalWan-diagram {
+  width: 100%;
+  height: 700px; /* Fixed height for consistency */
   padding: 20px;
+  box-sizing: border-box;
 }
 
-h2 {
-  text-align: center;
-  color: #333;
-  margin-bottom: 20px;
-}
-
-#myDiagramDiv {
-  background-color: #f8f9fa;
-  border-radius: 5px;
+#physicalWanDiv {
+  height: 100%; /* Inherits from .network-diagram */
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: #f9f9f9; /* Moved from inline style to CSS */
 }
 </style>

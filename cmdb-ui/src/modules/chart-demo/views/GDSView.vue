@@ -9,14 +9,17 @@
     <h2 style="margin-top: 40px">MX204 Edge Topology</h2>
     <MX204EdgeTopology />
 
-    <h2 style="margin-top: 40px">PhysicalWanPartner</h2>
+    <h2 style="margin-top: 40px">ASR-CoreWan & WanPartner</h2>
+    <AsrCoreWan :nodes="asrData.nodes" :links="asrData.links" />
+
+    <h2 style="margin-top: 40px">Physical Wan Partner</h2>
     <PhysicalWanPartner />
 
     <h2 style="margin-top: 40px">MHO</h2>
-    <Mho/>
+    <Mho />
 
     <h2 style="margin-top: 40px">PAN</h2>
-    <Pan/>
+    <Pan />
 
     <h2 style="margin-top: 40px">Example Topology</h2>
     <!-- Truyền topologyData vào ExampleTopology -->
@@ -25,13 +28,18 @@
 </template>
 
 <script>
-import ExampleTopology from '../components/ExampleTopology'
-import FabricTopology from '../components/FabricTopology'
-import MX204EdgeTopology from '../components/MX204EdgeTopology'
-import NetworkDiagram from '../components/NetworkDiagram'
+import FabricTopology from '../components/FabricTopology.vue'
+import MX204EdgeTopology from '../components/MX204EdgeTopology.vue'
+import NetworkDiagram from '../components/NetworkDiagram.vue'
+import AsrCoreWan from '../components/AsrCoreWan.vue'
 import PhysicalWanPartner from '../components/PhysicalWanPartner.vue'
 import Mho from '../components/Mho.vue'
 import Pan from '../components/Pan.vue'
+import ExampleTopology from '../components/ExampleTopology'
+// SVG icons
+import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
+import node from '@/assets/icons/node-svgrepo-com.svg'
+import router from '@/assets/icons/router-svgrepo-com.svg'
 
 export default {
   name: 'GDSView',
@@ -39,10 +47,11 @@ export default {
     NetworkDiagram,
     FabricTopology,
     MX204EdgeTopology,
-    ExampleTopology,
+    AsrCoreWan,
     PhysicalWanPartner,
     Mho,
-    Pan
+    Pan,
+    ExampleTopology,
   },
   data() {
     return {
@@ -152,6 +161,55 @@ export default {
         // LEAF to WAN
         { from: 'LEAF', to: 'WAN' },
       ],
+      // AsrCoreWan Data
+      asrData: {
+        nodes: [
+          { key: 'SW1', label: 'C9300_GDS_\nSW_WAN_ST\nA', category: 'core', icon: switchIcon },
+          { key: 'SW2', label: 'C9300_GDS\nSW_WAN_ST\nA', category: 'core', icon: switchIcon },
+          { key: 'PO2_1', label: 'Po2', category: 'po' },
+          { key: 'PO2_2', label: 'Po2', category: 'po' },
+          { key: 'NCS1', label: 'NCS-01\n10.29.2.86', category: 'core', icon: node },
+          { key: 'NCS2', label: 'NCS-01\n10.29.2.87', category: 'core', icon: node },
+          { key: 'C9300-01', label: 'C9300-01', category: 'leaf', icon: router },
+          { key: 'C9300-02', label: 'C9300-02', category: 'leaf', icon: router },
+          { key: 'PO1_1', label: 'Po1', category: 'po' },
+          { key: 'PO1_2', label: 'Po1', category: 'po' },
+          { key: 'LEAF-01', label: 'LEAF-01', category: 'leaf', icon: router },
+          { key: 'LEAF-02', label: 'LEAF-02', category: 'leaf', icon: router },
+        ],
+        links: [
+          // Stack connection
+          { from: 'SW1', to: 'SW2', label: 'STACK', category: 'stack' },
+          // Top level connections
+          { from: 'SW1', to: 'PO2_1', label: 'Te1/1/6' },
+          { from: 'SW1', to: 'PO2_2', label: 'Te1/1/8' },
+          { from: 'SW2', to: 'PO2_1', label: 'Te1/1/6' },
+          { from: 'SW2', to: 'PO2_2', label: 'Te1/1/8' },
+          // Po2 to NCS connections
+          { from: 'PO2_1', to: 'NCS1', label: 'Te0/0/0/2' },
+          { from: 'PO2_1', to: 'NCS2', label: 'Te0/0/0/3' },
+          { from: 'PO2_2', to: 'NCS1', label: 'Te0/0/0/2' },
+          { from: 'PO2_2', to: 'NCS2', label: 'Te0/0/0/3' },
+          // NCS to C9300 connections
+          { from: 'NCS1', to: 'C9300-01', label: 'Gi1/0/43\nMGMT' },
+          { from: 'NCS2', to: 'C9300-02', label: 'Gi2/0/43\nMGMT' },
+          // Po1 connections
+          { from: 'NCS1', to: 'PO1_1', label: 'Te0/0/0/0' },
+          { from: 'NCS1', to: 'PO1_2', label: 'Te0/0/0/1' },
+          { from: 'NCS2', to: 'PO1_1', label: 'Te0/0/0/0' },
+          { from: 'NCS2', to: 'PO1_2', label: 'Te0/0/0/1' },
+          // Po1 to LEAF connections
+          { from: 'PO1_1', to: 'LEAF-01', label: 'E1/16' },
+          { from: 'PO1_1', to: 'LEAF-02', label: 'E/17' },
+          { from: 'PO1_2', to: 'LEAF-01', label: 'E1/16' },
+          { from: 'PO1_2', to: 'LEAF-02', label: 'E/17' },
+        ],
+      },
+      // PhysicalWanPartner
+      physicalWanData: {
+        nodes: [],
+        links: [],
+      },
     }
   },
 }
