@@ -9,6 +9,15 @@
     <h2 style="margin-top: 40px">MX204 Edge Topology</h2>
     <MX204EdgeTopology />
 
+    <h2 style="margin-top: 40px">PhysicalWanPartner</h2>
+    <PhysicalWanPartner />
+
+    <h2 style="margin-top: 40px">MHO</h2>
+    <Mho/>
+
+    <h2 style="margin-top: 40px">PAN</h2>
+    <Pan/>
+
     <h2 style="margin-top: 40px">Example Topology</h2>
     <!-- Truyền topologyData vào ExampleTopology -->
     <ExampleTopology :topologyData="topologyData" />
@@ -20,6 +29,9 @@ import ExampleTopology from '../components/ExampleTopology'
 import FabricTopology from '../components/FabricTopology'
 import MX204EdgeTopology from '../components/MX204EdgeTopology'
 import NetworkDiagram from '../components/NetworkDiagram'
+import PhysicalWanPartner from '../components/PhysicalWanPartner.vue'
+import Mho from '../components/Mho.vue'
+import Pan from '../components/Pan.vue'
 
 export default {
   name: 'GDSView',
@@ -27,7 +39,10 @@ export default {
     NetworkDiagram,
     FabricTopology,
     MX204EdgeTopology,
-    ExampleTopology
+    ExampleTopology,
+    PhysicalWanPartner,
+    Mho,
+    Pan
   },
   data() {
     return {
@@ -138,6 +153,6 @@ export default {
         { from: 'LEAF', to: 'WAN' },
       ],
     }
-  }
+  },
 }
 </script>
