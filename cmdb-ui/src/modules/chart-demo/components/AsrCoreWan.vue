@@ -42,6 +42,8 @@ export default {
         // Use basic layout, we'll position manually
         'grid.visible': true,
         'grid.gridCellSize': new go.Size(10, 10),
+        initialPosition: new go.Point(0, 0),
+        initialContentAlignment: go.Spot.TopLeft,
       })
 
       // Define node templates

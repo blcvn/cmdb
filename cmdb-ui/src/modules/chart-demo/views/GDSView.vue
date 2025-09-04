@@ -21,6 +21,9 @@
     <h2 style="margin-top: 40px">PAN</h2>
     <Pan />
 
+    <h2 style="margin-top: 40px">RouterVPN</h2>
+    <RouterVPN />
+
     <h2 style="margin-top: 40px">Example Topology</h2>
     <!-- Truyền topologyData vào ExampleTopology -->
     <ExampleTopology :topologyData="topologyData" />
@@ -36,6 +39,8 @@ import PhysicalWanPartner from '../components/PhysicalWanPartner.vue'
 import Mho from '../components/Mho.vue'
 import Pan from '../components/Pan.vue'
 import ExampleTopology from '../components/ExampleTopology'
+import RouterVPN from '../components/RouterVPN.vue'
+
 // SVG icons
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import node from '@/assets/icons/node-svgrepo-com.svg'
@@ -52,6 +57,7 @@ export default {
     Mho,
     Pan,
     ExampleTopology,
+    RouterVPN
   },
   data() {
     return {

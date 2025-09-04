@@ -6,6 +6,9 @@
 
 <script>
 import * as go from 'gojs'
+import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
+import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
+import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 
 export default {
   name: 'MHODiagram',
@@ -29,74 +32,107 @@ export default {
         'undoManager.isEnabled': true,
         layout: $(go.Layout),
         'grid.visible': true,
-        'grid.gridCellSize': new go.Size(20, 20),
+        'grid.gridCellSize': new go.Size(10, 10),
         'grid.gridOrigin': new go.Point(0, 0),
         allowDrop: true,
+        initialPosition: new go.Point(0, 0),
+        initialContentAlignment: go.Spot.TopLeft,
       })
+
+      // Switch Node Template with icon behind smaller white rectangle
       this.diagram.nodeTemplateMap.add(
         'switch',
         $(
           go.Node,
-          'Auto',
+          'Position', // Use Position to layer elements
           { locationSpot: go.Spot.Center },
-          $(go.Shape, 'RoundedRectangle', {
-            fill: '#5DADE2',
-            stroke: '#2E5C8A',
-            strokeWidth: 2,
-            minSize: new go.Size(100, 60),
-          }),
+          // Icon (background, larger)
           $(
-            go.TextBlock,
+            go.Picture,
             {
-              margin: 8,
-              font: 'bold 10px Arial',
-              stroke: 'white',
-              textAlign: 'center',
+              width: 80,
+              height: 80,
+              imageStretch: go.GraphObject.Uniform,
+              alignment: go.Spot.Center,
             },
-            new go.Binding('text', 'label')
-          )
-        )
-      )
-      this.diagram.nodeTemplateMap.add(
-        'mho',
-        $(
-          go.Node,
-          'Vertical',
-          { locationSpot: go.Spot.Center },
-          $(go.Shape, 'RoundedRectangle', {
-            fill: '#87CEEB',
-            stroke: '#4682B4',
-            strokeWidth: 2,
-            width: 100,
-            height: 120,
-          }),
+            new go.Binding('source', 'icon')
+          ),
+          // White rectangle (smaller, on top, with text inside)
           $(
             go.Panel,
-            'Vertical',
-            { margin: 10 },
+            'Auto',
+            {
+              alignment: go.Spot.Center,
+            },
+            $(go.Shape, 'RoundedRectangle', {
+              fill: 'white',
+              stroke: '#333',
+              strokeWidth: 1,
+              width: 60,
+              height: 20,
+            }),
             $(
               go.TextBlock,
               {
-                font: 'bold 10px Arial',
+                font: 'bold 9px Arial',
                 stroke: '#333',
-                margin: 2,
                 textAlign: 'center',
-              },
-              new go.Binding('text', 'label1')
-            ),
-            $(
-              go.TextBlock,
-              {
-                font: 'bold 10px Arial',
-                stroke: '#333',
                 margin: 2,
-                textAlign: 'center',
               },
-              new go.Binding('text', 'label2')
+              new go.Binding('text', 'label')
             )
           )
         )
       )
+
+      // MHO Node Template with icon behind smaller white rectangle
+      this.diagram.nodeTemplateMap.add(
+        'mho',
+        $(
+          go.Node,
+          'Position', // Use Position to layer elements
+          { locationSpot: go.Spot.Center },
+          // Icon (background, larger)
+          $(
+            go.Picture,
+            {
+              width: 100,
+              height: 100,
+              imageStretch: go.GraphObject.Uniform,
+              alignment: go.Spot.Center,
+            },
+            new go.Binding('source', 'icon')
+          ),
+          // White rectangle (smaller, on top, with text inside)
+          $(
+            go.Panel,
+            'Auto',
+            {
+              alignment: go.Spot.Center,
+            },
+            $(go.Shape, 'RoundedRectangle', {
+              fill: 'white',
+              stroke: '#333',
+              strokeWidth: 1,
+              width: 80,
+              height: 25,
+            }),
+            $(
+              go.TextBlock,
+              {
+                font: 'bold 9px Arial',
+                stroke: '#333',
+                textAlign: 'center',
+                margin: 2,
+                wrap: go.TextBlock.WrapFit,
+              },
+              new go.Binding('text', 'label')
+            )
+          )
+        )
+      )
+
+      // Aggregation Node Template (unchanged)
       this.diagram.nodeTemplateMap.add(
         'aggregation',
         $(
@@ -121,6 +157,8 @@ export default {
           )
         )
       )
+
+      // Link templates (unchanged)
       this.diagram.linkTemplate = $(
         go.Link,
         {
@@ -128,26 +166,36 @@ export default {
           curve: go.Link.None,
           selectable: false,
         },
-        $(go.Shape, {
-          strokeWidth: 1.5,
-          stroke: '#333',
-        }),
+        new go.Binding('fromSpot', 'fromSpot', go.Spot.parse),
+        new go.Binding('toSpot', 'toSpot', go.Spot.parse),
+        new go.Binding('curviness'),
+        $(go.Shape, { strokeWidth: 1.5, stroke: '#333' }),
         $(
           go.TextBlock,
           {
             font: '8px Arial',
             stroke: '#000',
-            segmentOffset: new go.Point(0, -12),
+            segmentIndex: 0,
+            segmentOffset: new go.Point(-30, -10),
             segmentOrientation: go.Link.OrientUpright,
-            background: 'rgba(255, 255, 255, 0.9)',
-            margin: 3,
-            maxSize: new go.Size(80, NaN),
-            wrap: go.TextBlock.WrapFit,
-            textAlign: 'center',
+            margin: 2,
           },
-          new go.Binding('text', 'label')
+          new go.Binding('text', 'fromText')
+        ),
+        $(
+          go.TextBlock,
+          {
+            font: '8px Arial',
+            stroke: '#000',
+            segmentIndex: -1,
+            segmentOffset: new go.Point(30, -10),
+            segmentOrientation: go.Link.OrientUpright,
+            margin: 2,
+          },
+          new go.Binding('text', 'toText')
         )
       )
+
       this.diagram.linkTemplateMap.add(
         'sync',
         $(
@@ -176,6 +224,7 @@ export default {
           )
         )
       )
+
       this.diagram.linkTemplateMap.add(
         'bond',
         $(
@@ -204,27 +253,31 @@ export default {
           )
         )
       )
+
+      // Node Data Array with icons
       const nodeDataArray = [
-        { key: 'C9300-01', label: 'C9300-01', category: 'switch' },
-        { key: 'C9300-02', label: 'C9300-02', category: 'switch' },
-        { key: 'CP-MHO-01', label1: 'CP-', label2: 'MHO-01', category: 'mho' },
-        { key: 'CP-MHO-02', label1: 'CP-', label2: 'MHO-02', category: 'mho' },
+        { key: 'C9300-01', label: 'C9300-01', category: 'switch', icon: switchIcon },
+        { key: 'C9300-02', label: 'C9300-02', category: 'switch', icon: switchIcon },
+        { key: 'CP-MHO-01', label: 'CP-MHO-01', category: 'mho', icon: nodeIcon },
+        { key: 'CP-MHO-02', label: 'CP-MHO-02', category: 'mho', icon: nodeIcon },
         { key: 'E5-8-1', label: 'E5-8', category: 'aggregation' },
         { key: 'E5-8-2', label: 'E5-8', category: 'aggregation' },
         { key: 'E1-4-7-1', label: 'E1/4-7', category: 'aggregation' },
         { key: 'E1-4-7-2', label: 'E1/4-7', category: 'aggregation' },
-        { key: 'LEAF-01', label: 'LEAF-01', category: 'switch' },
-        { key: 'LEAF-02', label: 'LEAF-02', category: 'switch' },
+        { key: 'LEAF-01', label: 'LEAF-01', category: 'switch', icon: switchIcon },
+        { key: 'LEAF-02', label: 'LEAF-02', category: 'switch', icon: switchIcon },
       ]
+
+      // Link Data Array (unchanged)
       const linkDataArray = [
-        { from: 'C9300-01', to: 'CP-MHO-01', label: 'Gi1/0/37' },
-        { from: 'C9300-01', to: 'CP-MHO-01', label: 'MGMT-02' },
-        { from: 'C9300-01', to: 'CP-MHO-01', label: 'Gi1/0/39' },
-        { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/13' },
-        { from: 'C9300-02', to: 'CP-MHO-02', label: 'MGMT-02' },
+        { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/37', toText: 'MGMT-02' },
+        { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/38', toText: 'MGMT-01' },
+        { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/39', toText: 'E1' },
+        { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/37', toText: 'MGMT-02' },
+        { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/38', toText: 'MGMT-01' },
         { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/37' },
         { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/39' },
-        { from: 'CP-MHO-01', to: 'CP-MHO-02', label: 'SYNC', category: 'sync' },
+        { from: 'CP-MHO-01', to: 'CP-MHO-02', fromText: 'E48', toText: 'E48' },
         { from: 'CP-MHO-01', to: 'E5-8-1' },
         { from: 'CP-MHO-02', to: 'E5-8-2' },
         { from: 'E5-8-1', to: 'E5-8-2', label: 'bond1', category: 'bond' },
@@ -235,7 +288,10 @@ export default {
         { from: 'E1-4-7-1', to: 'LEAF-01' },
         { from: 'E1-4-7-2', to: 'LEAF-02' },
       ]
+
       this.diagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray)
+
+      // Position nodes (unchanged)
       this.diagram.addDiagramListener('InitialLayoutCompleted', () => {
         const c930001 = this.diagram.findNodeForKey('C9300-01')
         const c930002 = this.diagram.findNodeForKey('C9300-02')
