@@ -1,9 +1,9 @@
 <template>
   <div class="w-full">
-    <h2>Network Diagram</h2>
+    <h2>Logical Topology</h2>
     <NetworkDiagram :nodes="diagramNodes" :links="diagramLinks" />
 
-    <h2 style="margin-top: 40px">Fabric Topology</h2>
+    <h2 style="margin-top: 40px">ACI</h2>
     <FabricTopology />
 
     <h2 style="margin-top: 40px">MX204 Edge Topology</h2>
@@ -13,7 +13,7 @@
     <AsrCoreWan :nodes="asrData.nodes" :links="asrData.links" />
 
     <h2 style="margin-top: 40px">Physical Wan Partner</h2>
-    <PhysicalWanPartner />
+    <PhysicalWanPartner :nodes="physicalWanData.nodes" :links="physicalWanData.links" />
 
     <h2 style="margin-top: 40px">MHO</h2>
     <Mho />
@@ -23,6 +23,9 @@
 
     <h2 style="margin-top: 40px">RouterVPN</h2>
     <RouterVPN />
+
+    <h2 style="margin-top: 40px">Citrix</h2>
+    <Citrix />
 
     <h2 style="margin-top: 40px">Example Topology</h2>
     <!-- Truyền topologyData vào ExampleTopology -->
@@ -40,11 +43,12 @@ import Mho from '../components/Mho.vue'
 import Pan from '../components/Pan.vue'
 import ExampleTopology from '../components/ExampleTopology'
 import RouterVPN from '../components/RouterVPN.vue'
+import Citrix from '../components/Citrix.vue'
 
 // SVG icons
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import node from '@/assets/icons/node-svgrepo-com.svg'
-import router from '@/assets/icons/router-svgrepo-com.svg'
+import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 
 export default {
   name: 'GDSView',
@@ -57,7 +61,8 @@ export default {
     Mho,
     Pan,
     ExampleTopology,
-    RouterVPN
+    RouterVPN,
+    Citrix,
   },
   data() {
     return {
@@ -102,7 +107,7 @@ export default {
           { from: 6, to: 30 },
         ],
       },
-
+      // NETWORK TOPOLOGY DATA
       diagramNodes: [
         // Groups
         { key: 'LEAF', isGroup: true, category: 'band', text: 'LEAF', loc: '0 120', size: '1180 90' },
@@ -176,12 +181,12 @@ export default {
           { key: 'PO2_2', label: 'Po2', category: 'po' },
           { key: 'NCS1', label: 'NCS-01\n10.29.2.86', category: 'core', icon: node },
           { key: 'NCS2', label: 'NCS-01\n10.29.2.87', category: 'core', icon: node },
-          { key: 'C9300-01', label: 'C9300-01', category: 'leaf', icon: router },
-          { key: 'C9300-02', label: 'C9300-02', category: 'leaf', icon: router },
+          { key: 'C9300-01', label: 'C9300-01', category: 'leaf', icon: routerIcon },
+          { key: 'C9300-02', label: 'C9300-02', category: 'leaf', icon: routerIcon },
           { key: 'PO1_1', label: 'Po1', category: 'po' },
           { key: 'PO1_2', label: 'Po1', category: 'po' },
-          { key: 'LEAF-01', label: 'LEAF-01', category: 'leaf', icon: router },
-          { key: 'LEAF-02', label: 'LEAF-02', category: 'leaf', icon: router },
+          { key: 'LEAF-01', label: 'LEAF-01', category: 'leaf', icon: routerIcon },
+          { key: 'LEAF-02', label: 'LEAF-02', category: 'leaf', icon: routerIcon },
         ],
         links: [
           // Stack connection
@@ -213,9 +218,76 @@ export default {
       },
       // PhysicalWanPartner
       physicalWanData: {
-        nodes: [],
-        links: [],
+        nodes: [
+          {
+            key: 'NCS-01',
+            label: 'NCS-01',
+            ip: 'IP: 10.29.2.86',
+            category: 'router',
+            icon: routerIcon,
+          },
+          {
+            key: 'NCS-02',
+            label: 'NCS-02',
+            ip: 'IP: 10.29.2.87',
+            category: 'router',
+            icon: routerIcon,
+          },
+          {
+            key: 'C9300-01-WAN',
+            label: 'C9300-01 WAN',
+            ip: 'IP: 10.29.2.90',
+            category: 'switch',
+            icon: switchIcon,
+          },
+          {
+            key: 'C9300-02-WAN',
+            label: 'C9300-02 WAN',
+            ip: 'IP: 10.29.2.90',
+            category: 'switch',
+            icon: switchIcon,
+          },
+          {
+            key: 'C4431_GDS_RT_04',
+            label: 'C4431_GDS_RT_04',
+            ip: 'IP: 10.29.2.94',
+            category: 'router',
+            icon: routerIcon,
+          },
+          {
+            key: 'C4431_GDS_RT_02',
+            label: 'C4431_GDS_RT_02',
+            ip: 'IP: 10.29.2.92',
+            category: 'router',
+            icon: routerIcon,
+          },
+          {
+            key: 'C4431_GDS_RT_03',
+            label: 'C4431_GDS_RT_03',
+            ip: 'IP: 10.29.2.93',
+            category: 'router',
+            icon: routerIcon,
+          },
+        ],
+        links: [
+          { from: 'NCS-01', to: 'C9300-01-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/6', category: 'close' },
+          { from: 'NCS-01', to: 'C9300-02-WAN', fromText: 'Te0/0/0/3', toText: 'Te1/1/6', category: 'close' },
+          { from: 'NCS-02', to: 'C9300-01-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/8', category: 'close' },
+          { from: 'NCS-02', to: 'C9300-02-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/8', category: 'close' },
+          { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_04', fromText: 'Gi1/0/3', toText: 'Gi0/0/0', category: 'close' },
+          { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_02', fromText: 'Gi1/0/4', toText: 'Gi0/3/0', category: 'close' },
+          { from: 'C9300-01-WAN', to: 'C9300-02-WAN', fromText: 'Te1/1/6', toText: 'Stack', category: 'close' },
+          { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_03', fromText: 'Gi1/0/5', toText: 'Gi0/0/0', category: 'close' },
+          { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_04', toText: 'Gi0/0/1', category: 'close' },
+          { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_02', fromText: 'Gi2/0/4', toText: 'Gi3/0/1', category: 'close' },
+          { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_03', fromText: 'Gi1/0/5', toText: 'Gi0/0/1', category: 'close' },
+        ],
       },
+      // MHO
+      mhoData: {
+          nodes: [],
+          links: [],
+      }
     }
   },
 }

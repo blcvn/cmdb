@@ -9,6 +9,8 @@ import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+import ips from '@/assets/ips.png'
+import waf from '@/assets/waf.png'
 
 export default {
   name: 'NetworkTopologyDiagram',
@@ -138,8 +140,8 @@ export default {
           $(
             go.Picture,
             {
-              width: 100,
-              height: 60,
+              width: 400,
+              height: 50,
               imageStretch: go.GraphObject.Uniform,
               alignment: go.Spot.Center,
             },
@@ -183,8 +185,8 @@ export default {
           $(
             go.Picture,
             {
-              width: 100,
-              height: 60,
+              width: 400,
+              height: 50,
               imageStretch: go.GraphObject.Uniform,
               alignment: go.Spot.Center,
             },
@@ -303,8 +305,8 @@ export default {
         { key: 'ae1-right', label: 'ae1', category: 'ae' },
 
         // Core network devices
-        { key: 'IPS', label: 'IPS Tipping Point', category: 'ips', icon: nodeIcon },
-        { key: 'WAF', label: 'WAF Imperva', category: 'waf', icon: nodeIcon },
+        { key: 'IPS', label: 'IPS Tipping Point', category: 'ips', icon: ips },
+        { key: 'WAF', label: 'WAF Imperva', category: 'waf', icon: waf },
 
         // Bottom layer - LEAF switches
         { key: 'LEAF-01-BOTTOM', label: 'LEAF-01', category: 'leaf', icon: switchIcon },

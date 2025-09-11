@@ -100,7 +100,12 @@ export default {
           copyable: false,
           deletable: false,
         },
-        $(go.Shape, 'Rectangle', { fill: 'transparent', stroke: '#888', strokeDashArray: [6, 3], strokeWidth: 1.2 }),
+        $(go.Shape, 'RoundedRectangle', {
+          fill: 'transparent',
+          stroke: '#444', // darker border
+          strokeDashArray: [6, 3],
+          strokeWidth: 2, // thicker
+        }),
         $(
           go.Panel,
           'Vertical',
@@ -113,27 +118,53 @@ export default {
       diagram.linkTemplate = $(
         go.Link,
         {
-          routing: go.Link.AvoidsNodes,
-          curve: go.Link.JumpOver,
-          adjusting: go.Link.Stretch,
-          corner: 8,
-          toShortLength: 6,
+          routing: go.Link.Normal, // straight line
+          curve: go.Link.None, // no curve
+          corner: 0, // remove rounded corners
+          toShortLength: 0, // arrow starts directly at node border
         },
-        new go.Binding('stroke', 'isHighlighted', (h) => (h ? '#0066cc' : '#333')),
-        $(go.Shape, { strokeWidth: 2 }),
-        $(go.Shape, { toArrow: 'Standard', stroke: null, scale: 0.9 }),
-        // label panel: đặt lên giữa segment 0 (đường thẳng chỉ có 1 segment)
+        $(go.Shape, { strokeWidth: 2, stroke: '#333' }),
+        // optional label
         $(
           go.Panel,
           'Auto',
           {
             segmentIndex: 0,
             segmentFraction: 0.5, // midpoint
-            segmentOffset: new go.Point(0, -15), // lên trên 15px để khỏi chạm node
+            segmentOffset: new go.Point(0, -10),
           },
           $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
           $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'label'))
+        ),
+         // START label (near 'from' node)
+        $(
+          go.Panel,
+          'Auto',
+          { segmentIndex: 0, segmentFraction: 0, segmentOffset: new go.Point(0, -10) },
+          $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
+          $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'fromLabel'))
+        ),
+
+        // END label (near 'to' node)
+        $(
+          go.Panel,
+          'Auto',
+          { segmentIndex: -1, segmentFraction: 1, segmentOffset: new go.Point(0, -10) },
+          $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
+          $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'toLabel'))
         )
+      )
+
+      diagram.linkTemplate = $(
+        go.Link,
+        {
+          routing: go.Link.Normal, // straight line
+          curve: go.Link.None, // no curve
+          corner: 0, // straight corners
+          toShortLength: 0,
+          fromShortLength: 0,
+        },
+        $(go.Shape, { strokeWidth: 2, stroke: '#333' }),
       )
 
       this.diagram = diagram

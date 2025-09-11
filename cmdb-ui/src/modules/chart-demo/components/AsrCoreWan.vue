@@ -1,6 +1,6 @@
 <template>
-  <div class="network-diagram">
-    <div id="myDiagramDiv" style="width: 100%; height: 600px; background-color: #f5f5f5"></div>
+  <div class="asr-diagram">
+    <div id="asrDiagramDiv" style="width: 100%; height: 600px; background-color: #f5f5f5"></div>
   </div>
 </template>
 
@@ -36,7 +36,7 @@ export default {
     initDiagram() {
       const $ = go.GraphObject.make
 
-      this.diagram = $(go.Diagram, 'myDiagramDiv', {
+      this.diagram = $(go.Diagram, 'asrDiagramDiv', {
         'undoManager.isEnabled': true,
         layout: $(go.Layout),
         // Use basic layout, we'll position manually
@@ -289,14 +289,14 @@ export default {
 </script>
 
 <style scoped>
-.network-diagram {
+.asr-diagram {
   width: 100%;
   height: 100vh;
   padding: 20px;
   box-sizing: border-box;
 }
 
-#myDiagramDiv {
+#asrDiagramDiv {
   border: 1px solid #ccc;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);

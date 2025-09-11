@@ -1,6 +1,6 @@
 <template>
   <div>
-    <NetworkTopology :nodes="topologyNodes" :links="topologyLinks" />
+    <NetworkTopology :nodes="nodes" :links="links" />
   </div>
 </template>
 
@@ -14,7 +14,7 @@ export default {
   },
   data() {
     return {
-      topologyNodes: [
+      nodes: [
         // Groups
         { key: 'SPINE', isGroup: true },
         { key: 'LEAF', isGroup: true },
@@ -41,7 +41,7 @@ export default {
         { key: 'APIC-02', label: 'APIC-02', subtitle: 'ACI', type: 'apic', color: '#d6f7dd', group: 'APIC' },
         { key: 'APIC-03', label: 'APIC-03', subtitle: 'ACI', type: 'apic', color: '#d6f7dd', group: 'APIC' }
       ],
-      topologyLinks: [
+      links: [
         // SPINE-01 connections (highlighted in blue)
         { from: 'SPINE-01', to: 'LEAF-01', label: 'E1/59', isHighlighted: true },
         { from: 'SPINE-01', to: 'LEAF-02', label: 'E1/59', isHighlighted: true },

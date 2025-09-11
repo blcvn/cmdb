@@ -10,14 +10,8 @@ import * as go from 'gojs'
 export default {
   name: 'NetworkDiagram',
   props: {
-    nodes: {
-      type: Array,
-      default: () => []
-    },
-    links: {
-      type: Array,
-      default: () => []
-    }
+    nodes: { type: Array, default: () => [] },
+    links: { type: Array, default: () => [] },
   },
   data() {
     return { diagram: null }
@@ -33,14 +27,14 @@ export default {
       handler() {
         this.updateDiagram()
       },
-      deep: true
+      deep: true,
     },
     links: {
       handler() {
         this.updateDiagram()
       },
-      deep: true
-    }
+      deep: true,
+    },
   },
   methods: {
     initDiagram() {
@@ -49,50 +43,53 @@ export default {
       this.diagram = $(go.Diagram, this.$refs.diagramDiv, {
         initialContentAlignment: go.Spot.Center,
         'undoManager.isEnabled': true,
-        layout: $(go.Layout)
+        layout: $(go.Layout),
       })
 
-      // ❌ Tắt animation để tránh giật
+      // Disable animation for smoother loading
       this.diagram.animationManager.isEnabled = false
 
-      // ===== Helpers =====
+      // ===== Node Helpers =====
       const LBL = (key = 'text', opts = {}) =>
-        $(go.TextBlock, { margin: new go.Margin(8, 10, 4, 10), font: 'bold 12pt Segoe UI', stroke: '#202124', textAlign: 'center', ...opts }, new go.Binding('text', key))
+        $(
+          go.TextBlock,
+          {
+            margin: new go.Margin(8, 10, 4, 10),
+            font: 'bold 12pt Segoe UI',
+            stroke: '#202124',
+            textAlign: 'center',
+            ...opts,
+          },
+          new go.Binding('text', key)
+        )
 
       const SUB = (key = 'subtitle') =>
-        $(go.TextBlock, { margin: new go.Margin(0, 10, 8, 10), font: '10pt Segoe UI', stroke: '#5f6368', textAlign: 'center' }, new go.Binding('text', key))
+        $(
+          go.TextBlock,
+          { margin: new go.Margin(0, 10, 8, 10), font: '10pt Segoe UI', stroke: '#5f6368', textAlign: 'center' },
+          new go.Binding('text', key)
+        )
 
       // ===== Nodes =====
-      this.diagram.nodeTemplateMap.add('default',
-        $(go.Node, 'Auto',
-          { locationSpot: go.Spot.Center },
+      const nodeTemplate = (fill, stroke, textStroke) =>
+        $(
+          go.Node,
+          'Auto',
+          { locationSpot: go.Spot.Center, movable: true },
           new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
-          $(go.Shape, 'RoundedRectangle', { fill: '#ffffff', stroke: '#5f6368', strokeWidth: 1.2, parameter1: 6 }, new go.Binding('fill', 'fill'), new go.Binding('stroke', 'stroke'), new go.Binding('desiredSize', 'size', go.Size.parse)),
-          $(go.Panel, 'Vertical', { margin: 2 }, LBL('text'), SUB('subtitle'))
+          $(go.Shape, 'RoundedRectangle', { fill, stroke, strokeWidth: 1.2, parameter1: 6 }),
+          $(go.Panel, 'Vertical', { margin: 2 }, LBL('text', { stroke: textStroke }), SUB('subtitle'))
         )
-      )
 
-      this.diagram.nodeTemplateMap.add('security',
-        $(go.Node, 'Auto',
-          { locationSpot: go.Spot.Center },
-          new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
-          $(go.Shape, 'RoundedRectangle', { fill: '#fee2e2', stroke: '#ef4444', strokeWidth: 1.4, parameter1: 8 }, new go.Binding('desiredSize', 'size', go.Size.parse)),
-          $(go.Panel, 'Vertical', { margin: 2 }, LBL('text', { stroke: '#7f1d1d' }), SUB('subtitle'))
-        )
-      )
-
-      this.diagram.nodeTemplateMap.add('net',
-        $(go.Node, 'Auto',
-          { locationSpot: go.Spot.Center },
-          new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
-          $(go.Shape, 'RoundedRectangle', { fill: '#e0f2fe', stroke: '#0284c7', strokeWidth: 1.2, parameter1: 6 }, new go.Binding('desiredSize', 'size', go.Size.parse)),
-          $(go.Panel, 'Vertical', { margin: 2 }, LBL('text', { stroke: '#0c4a6e' }), SUB('subtitle'))
-        )
-      )
-
-      this.diagram.nodeTemplateMap.add('label',
-        $(go.Node, 'Auto',
-          { locationSpot: go.Spot.Center },
+      this.diagram.nodeTemplateMap.add('default', nodeTemplate('#ffffff', '#5f6368', '#202124'))
+      this.diagram.nodeTemplateMap.add('security', nodeTemplate('#fee2e2', '#ef4444', '#7f1d1d'))
+      this.diagram.nodeTemplateMap.add('net', nodeTemplate('#e0f2fe', '#0284c7', '#0c4a6e'))
+      this.diagram.nodeTemplateMap.add(
+        'label',
+        $(
+          go.Node,
+          'Auto',
+          { locationSpot: go.Spot.Center, movable: true },
           new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
           $(go.Shape, 'RoundedRectangle', { fill: '#eef2ff', stroke: '#6366f1', strokeWidth: 1.2, parameter1: 12 }),
           LBL('text', { margin: new go.Margin(10, 16, 10, 16) })
@@ -100,41 +97,65 @@ export default {
       )
 
       // ===== Groups =====
-      this.diagram.groupTemplateMap.add('area',
-        $(go.Group, 'Auto',
+      this.diagram.groupTemplateMap.add(
+        'area',
+        $(
+          go.Group,
+          'Auto',
           {
             computesBoundsAfterDrag: true,
             locationSpot: go.Spot.Center,
             handlesDragDropForMembers: true,
-            layout: $(go.Layout)
+            layout: $(go.Layout),
           },
           $(go.Shape, 'RoundedRectangle', { fill: 'rgba(237,242,247,0.7)', stroke: '#94a3b8', strokeWidth: 1.2 }),
-          $(go.Panel, 'Table',
+          $(
+            go.Panel,
+            'Table',
             $(go.Panel, 'Auto', { row: 0, margin: 6 }, $(go.Placeholder, { padding: 16 })),
-            $(go.Panel, 'Auto', { row: 1 },
+            $(
+              go.Panel,
+              'Auto',
+              { row: 1 },
               $(go.Shape, 'Rectangle', { fill: '#fde68a', stroke: '#f59e0b' }),
-              $(go.TextBlock, { margin: new go.Margin(4, 10), font: 'bold 12pt Segoe UI', stroke: '#92400e', textAlign: 'center' }, new go.Binding('text', 'text'))
+              $(
+                go.TextBlock,
+                { margin: new go.Margin(4, 10), font: 'bold 12pt Segoe UI', stroke: '#92400e', textAlign: 'center' },
+                new go.Binding('text', 'text')
+              )
             )
           )
         )
       )
 
-      this.diagram.groupTemplateMap.add('band',
-        $(go.Group, 'Auto', { selectable: false, locationSpot: go.Spot.Center },
+      this.diagram.groupTemplateMap.add(
+        'band',
+        $(
+          go.Group,
+          'Auto',
+          { selectable: false, locationSpot: go.Spot.Center },
           new go.Binding('location', 'loc', go.Point.parse),
-          $(go.Shape, 'RoundedRectangle', { fill: '#d9f99d', stroke: '#65a30d', strokeWidth: 1.2, parameter1: 6 }, new go.Binding('desiredSize', 'size', go.Size.parse)),
+          $(
+            go.Shape,
+            'RoundedRectangle',
+            { fill: '#d9f99d', stroke: '#65a30d', strokeWidth: 1.2, parameter1: 6 },
+            new go.Binding('desiredSize', 'size', go.Size.parse)
+          ),
           $(go.TextBlock, { margin: 6, font: 'bold 12pt Segoe UI', stroke: '#1b4332' }, new go.Binding('text', 'text'))
         )
       )
 
-      // ===== Links =====
-      this.diagram.linkTemplate = $(go.Link, { routing: go.Link.AvoidsNodes, corner: 8 },
-        $(go.Shape, { strokeWidth: 1.6 }),
-        $(go.Shape, { toArrow: 'Standard', scale: 1.1 })
+      // ===== Links (straight, no arrows) =====
+      this.diagram.linkTemplate = $(
+        go.Link,
+        { routing: go.Link.Normal, curve: go.Link.None, corner: 0, selectable: true },
+        $(go.Shape, { strokeWidth: 1.6, stroke: '#0284c7' })
       )
 
       // Grid
-      this.diagram.grid = $(go.Panel, 'Grid',
+      this.diagram.grid = $(
+        go.Panel,
+        'Grid',
         $(go.Shape, 'LineH', { stroke: 'rgba(0,0,0,0.08)', strokeWidth: 1 }),
         $(go.Shape, 'LineV', { stroke: 'rgba(0,0,0,0.08)', strokeWidth: 1 })
       )
@@ -145,16 +166,22 @@ export default {
       // Load initial data
       this.updateDiagram()
     },
+
     updateDiagram() {
       if (this.diagram && this.nodes.length > 0) {
-        this.diagram.model = new go.GraphLinksModel(this.nodes, this.links)
-        // canh giữa ngay sau khi load model
+        // Create a fresh GraphLinksModel so each diagram is independent
+        this.diagram.model = new go.GraphLinksModel(
+          JSON.parse(JSON.stringify(this.nodes)),
+          JSON.parse(JSON.stringify(this.links))
+        )
+
+        // Center diagram after loading
         this.diagram.delayInitialization(() => {
           this.diagram.centerRect(this.diagram.documentBounds)
         })
       }
-    }
-  }
+    },
+  },
 }
 </script>
 
