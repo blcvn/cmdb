@@ -7,7 +7,6 @@
 <script>
 import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
-import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 import ips from '@/assets/ips.png'
 import waf from '@/assets/waf.png'
@@ -34,7 +33,7 @@ export default {
         'undoManager.isEnabled': true,
         layout: $(go.Layout), // No automatic layout
         'grid.visible': true,
-        'grid.gridCellSize': new go.Size(10, 10),
+        'grid.gridCellSize': new go.Size(20, 20),
         initialPosition: new go.Point(0, 0),
         initialContentAlignment: go.Spot.TopLeft,
       })

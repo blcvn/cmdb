@@ -1,25 +1,21 @@
-import { BasicLayout } from '@/layouts'
+import { BasicLayout, BlankLayout } from '@/layouts'
+import { diagramRoutes } from './diagramRoute'
 
 export default () => [
   {
     path: '/chart-demo',
     name: 'chart-demo',
     component: BasicLayout,
-    redirect: '/chart-demo/diagram',
+    redirect: '/chart-demo/gds/logical-topology',
     meta: { title: 'Chart Demo', icon: 'gridSvg', selectedIcon: 'gridSvg' },
     children: [
       {
-        path: '/chart-demo/gds',
+        path: 'gds',
         name: 'chart_demo_gds',
         meta: { title: 'Topo GDS', icon: 'ops_move_icon', selectedIcon: 'ops_move_icon' },
-        component: () => import('@/modules/chart-demo/views/GDSView')
-      },
-      // {
-      //   path: '/chart-demo/network',
-      //   name: 'chart_demo_network',
-      //   meta: { title: 'Network Diagram', icon: 'ops_move_icon', selectedIcon: 'ops_move_icon' },
-      //   component: () => import('@/modules/chart-demo/views/NetworkDiagramView')
-      // }
+        component: BlankLayout,
+        children: diagramRoutes
+      }
     ]
   }
 ]

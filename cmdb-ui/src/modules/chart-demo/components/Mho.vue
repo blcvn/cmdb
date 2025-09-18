@@ -8,13 +8,47 @@
 import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
-import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 
+const mhoData = {
+  nodes: [
+    { key: 'C9300-01', label: 'C9300-01', category: 'switch', icon: switchIcon },
+    { key: 'C9300-02', label: 'C9300-02', category: 'switch', icon: switchIcon },
+    { key: 'CP-MHO-01', label: 'CP-MHO-01', category: 'mho', icon: nodeIcon },
+    { key: 'CP-MHO-02', label: 'CP-MHO-02', category: 'mho', icon: nodeIcon },
+    { key: 'E5-8-1', label: 'E5-8', category: 'aggregation' },
+    { key: 'E5-8-2', label: 'E5-8', category: 'aggregation' },
+    { key: 'E1-4-7-1', label: 'E1/4-7', category: 'aggregation' },
+    { key: 'E1-4-7-2', label: 'E1/4-7', category: 'aggregation' },
+    { key: 'LEAF-01', label: 'LEAF-01', category: 'switch', icon: switchIcon },
+    { key: 'LEAF-02', label: 'LEAF-02', category: 'switch', icon: switchIcon },
+  ],
+  links: [
+    { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/37', toText: 'MGMT-02' },
+    { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/38', toText: 'MGMT-01' },
+    { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/39', toText: 'E1' },
+    { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/37', toText: 'MGMT-02' },
+    { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/38', toText: 'MGMT-01' },
+    { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/37' },
+    { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/39' },
+    { from: 'CP-MHO-01', to: 'CP-MHO-02', fromText: 'E48', toText: 'E48' },
+    { from: 'CP-MHO-01', to: 'E5-8-1' },
+    { from: 'CP-MHO-02', to: 'E5-8-2' },
+    { from: 'E5-8-1', to: 'E5-8-2', label: 'bond1', category: 'bond' },
+    { from: 'E5-8-1', to: 'E1-4-7-1' },
+    { from: 'E5-8-1', to: 'E1-4-7-2' },
+    { from: 'E5-8-2', to: 'E1-4-7-1' },
+    { from: 'E5-8-2', to: 'E1-4-7-2' },
+    { from: 'E1-4-7-1', to: 'LEAF-01' },
+    { from: 'E1-4-7-2', to: 'LEAF-02' },
+  ],
+}
 export default {
   name: 'MHODiagram',
   data() {
     return {
       diagram: null,
+      nodes: mhoData.nodes,
+      links: mhoData.links,
     }
   },
   mounted() {
@@ -32,7 +66,7 @@ export default {
         'undoManager.isEnabled': true,
         layout: $(go.Layout),
         'grid.visible': true,
-        'grid.gridCellSize': new go.Size(10, 10),
+        'grid.gridCellSize': new go.Size(20, 20),
         'grid.gridOrigin': new go.Point(0, 0),
         allowDrop: true,
         initialPosition: new go.Point(0, 0),

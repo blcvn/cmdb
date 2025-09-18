@@ -6,12 +6,74 @@
 
 <script>
 import * as go from 'gojs'
+const defaultNodes = {
+  // Core network/
+  nodes: [
+    // Groups
+    { key: 'DMZ', isGroup: true, category: 'area', text: 'DMZ' },
+    { key: 'CORE', isGroup: true, category: 'area', text: 'CORE' },
+    // LEAF
+    { key: 'LEAF', category: 'net', text: 'LEAF', loc: '0 120', size: '1180 90' },
+    // INTERNET EDGE cluster (phải, phía trên LEAF)
+    { key: 'INTERNET', category: 'label', text: 'INTERNET', loc: '520 -60' },
+    { key: 'EDGE', category: 'label', text: 'INTERNET EDGE', loc: '520 -10' },
+    { key: 'LB', category: 'net', text: 'LB', loc: '470 40', size: '90 54' },
+    { key: 'VPN', category: 'net', text: 'VPN ROUTER', loc: '570 40', size: '120 54' },
+
+    // DMZ area members (trái, trên LEAF)
+    { key: 'DMZ-SRV', category: 'default', text: 'DMZ SERVER', group: 'DMZ', loc: '-430 -100', size: '120 64' },
+    { key: 'WEB-SRV', category: 'default', text: 'WEB SERVER', group: 'DMZ', loc: '-300 -100', size: '120 64' },
+
+    // DMZ firewall
+    {
+      key: 'FW-DMZ',
+      category: 'security',
+      text: 'FIREWALL DMZ PALO ALTO',
+      loc: '30 -100',
+      size: '160 64',
+    },
+    { key: 'WAF', category: 'security', text: 'WAF DMZ', loc: '0 0', size: '120 54' },
+    { key: 'IPS', category: 'security', text: 'IPS', loc: '0 -40', size: '120 54' },
+
+    // CORE area members (giữa dưới LEAF)
+    { key: 'JUMP', category: 'default', text: 'JUMP SERVER', group: 'CORE', loc: '-260 220', size: '120 64' },
+    { key: 'CORE-SRV', category: 'default', text: 'CORE', group: 'CORE', loc: '-160 220', size: '120 64' },
+
+    // WAN (phải, ngang LEAF)
+    { key: 'WAN', category: 'net', text: 'WAN', loc: '760 120', size: '120 54' },
+  ],
+  links: [
+    // INTERNET EDGE flows
+    { from: 'INTERNET', to: 'EDGE' },
+    { from: 'EDGE', to: 'LB' },
+    { from: 'EDGE', to: 'VPN' },
+    { from: 'LB', to: 'LEAF' },
+    { from: 'VPN', to: 'LEAF' },
+
+    // DMZ chain
+    { from: 'DMZ-SRV', to: 'LEAF' },
+    { from: 'WEB-SRV', to: 'LEAF' },
+    { from: 'WAF', to: 'IPS' },
+    { from: 'IPS', to: 'FW-DMZ' },
+    { from: 'FW-DMZ', to: 'LEAF' },
+
+    // CORE chain
+    { from: 'LEAF', to: 'FW-CORE' },
+    { from: 'FW-CORE', to: 'CORE-SRV' },
+    { from: 'FW-CORE', to: 'JUMP' },
+
+    // LEAF to WAN
+    { from: 'LEAF', to: 'WAN' },
+    { from: 'LEAF', to: 'WAF' },
+    { from: 'CORE', to: 'LEAF' },
+  ],
+}
 
 export default {
-  name: 'NetworkDiagram',
+  name: 'LogicalTopologyDiagram',
   props: {
-    nodes: { type: Array, default: () => [] },
-    links: { type: Array, default: () => [] },
+    nodes: { type: Array, default: () => defaultNodes.nodes },
+    links: { type: Array, default: () => defaultNodes.links },
   },
   data() {
     return { diagram: null }
@@ -161,7 +223,7 @@ export default {
       )
       this.diagram.grid.visible = true
       this.diagram.toolManager.draggingTool.isGridSnapEnabled = true
-      this.diagram.grid.gridCellSize = new go.Size(10, 10)
+      this.diagram.grid.gridCellSize = new go.Size(20, 20)
 
       // Load initial data
       this.updateDiagram()

@@ -14,6 +14,12 @@
     >
       Topology
     </span>
+    <span
+      :class="current === 'chart-editor' ? 'top-menu-selected' : ''"
+      @click="() => handleClick({ name: 'chart-editor' })"
+    >
+      Chart Editor
+    </span>
     <!-- <a-popover v-model="visible" placement="bottom" trigger="click" overlayClassName="top-menu-dropdown">
       <template slot="content">
         <div class="title">
@@ -96,6 +102,8 @@ export default {
           }
         } else if (route.name === 'chart-demo') {
           this.$router.push('/chart-demo/gds')
+        } else if (route.name === 'chart-editor') {
+          this.$router.push('/chart-editor')
         } else if (route.name === 'xyz') {
           this.$router.push('/xyz')
         } else {

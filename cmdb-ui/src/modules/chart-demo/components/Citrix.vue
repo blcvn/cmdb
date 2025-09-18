@@ -8,7 +8,6 @@
 import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
-import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 
 export default {
   name: 'NetworkTopologyDiagram',

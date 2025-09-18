@@ -6,6 +6,53 @@
 
 <script>
 import * as go from 'gojs'
+import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
+import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
+import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+
+const asrData = {
+  nodes: [
+    { key: 'SW1', label: 'C9300_GDS_\nSW_WAN_ST\nA', category: 'core', icon: switchIcon },
+    { key: 'SW2', label: 'C9300_GDS\nSW_WAN_ST\nA', category: 'core', icon: switchIcon },
+    { key: 'PO2_1', label: 'Po2', category: 'po' },
+    { key: 'PO2_2', label: 'Po2', category: 'po' },
+    { key: 'NCS1', label: 'NCS-01\n10.29.2.86', category: 'core', icon: nodeIcon },
+    { key: 'NCS2', label: 'NCS-01\n10.29.2.87', category: 'core', icon: nodeIcon },
+    { key: 'C9300-01', label: 'C9300-01', category: 'leaf', icon: routerIcon },
+    { key: 'C9300-02', label: 'C9300-02', category: 'leaf', icon: routerIcon },
+    { key: 'PO1_1', label: 'Po1', category: 'po' },
+    { key: 'PO1_2', label: 'Po1', category: 'po' },
+    { key: 'LEAF-01', label: 'LEAF-01', category: 'leaf', icon: routerIcon },
+    { key: 'LEAF-02', label: 'LEAF-02', category: 'leaf', icon: routerIcon },
+  ],
+  links: [
+    // Stack connection
+    { from: 'SW1', to: 'SW2', label: 'STACK', category: 'stack' },
+    // Top level connections
+    { from: 'SW1', to: 'PO2_1', label: 'Te1/1/6' },
+    { from: 'SW1', to: 'PO2_2', label: 'Te1/1/8' },
+    { from: 'SW2', to: 'PO2_1', label: 'Te1/1/6' },
+    { from: 'SW2', to: 'PO2_2', label: 'Te1/1/8' },
+    // Po2 to NCS connections
+    { from: 'PO2_1', to: 'NCS1', label: 'Te0/0/0/2' },
+    { from: 'PO2_1', to: 'NCS2', label: 'Te0/0/0/3' },
+    { from: 'PO2_2', to: 'NCS1', label: 'Te0/0/0/2' },
+    { from: 'PO2_2', to: 'NCS2', label: 'Te0/0/0/3' },
+    // NCS to C9300 connections
+    { from: 'NCS1', to: 'C9300-01', label: 'Gi1/0/43\nMGMT' },
+    { from: 'NCS2', to: 'C9300-02', label: 'Gi2/0/43\nMGMT' },
+    // Po1 connections
+    { from: 'NCS1', to: 'PO1_1', label: 'Te0/0/0/0' },
+    { from: 'NCS1', to: 'PO1_2', label: 'Te0/0/0/1' },
+    { from: 'NCS2', to: 'PO1_1', label: 'Te0/0/0/0' },
+    { from: 'NCS2', to: 'PO1_2', label: 'Te0/0/0/1' },
+    // Po1 to LEAF connections
+    { from: 'PO1_1', to: 'LEAF-01', label: 'E1/16' },
+    { from: 'PO1_1', to: 'LEAF-02', label: 'E/17' },
+    { from: 'PO1_2', to: 'LEAF-01', label: 'E1/16' },
+    { from: 'PO1_2', to: 'LEAF-02', label: 'E/17' },
+  ],
+}
 
 export default {
   name: 'AsrCoreWan',
@@ -13,10 +60,12 @@ export default {
     nodes: {
       type: Array,
       required: true,
+      default: () => asrData.nodes,
     },
     links: {
       type: Array,
       required: true,
+      default: () => asrData.links,
     },
   },
   data() {
@@ -41,7 +90,7 @@ export default {
         layout: $(go.Layout),
         // Use basic layout, we'll position manually
         'grid.visible': true,
-        'grid.gridCellSize': new go.Size(10, 10),
+        'grid.gridCellSize': new go.Size(20, 20),
         initialPosition: new go.Point(0, 0),
         initialContentAlignment: go.Spot.TopLeft,
       })

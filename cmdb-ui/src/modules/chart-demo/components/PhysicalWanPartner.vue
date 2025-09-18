@@ -7,16 +7,88 @@
 <script>
 import * as go from 'gojs'
 
+import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
+import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+
+const physicalWanData = {
+  nodes: [
+    {
+      key: 'NCS-01',
+      label: 'NCS-01',
+      ip: 'IP: 10.29.2.86',
+      category: 'router',
+      icon: routerIcon,
+    },
+    {
+      key: 'NCS-02',
+      label: 'NCS-02',
+      ip: 'IP: 10.29.2.87',
+      category: 'router',
+      icon: routerIcon,
+    },
+    {
+      key: 'C9300-01-WAN',
+      label: 'C9300-01 WAN',
+      ip: 'IP: 10.29.2.90',
+      category: 'switch',
+      icon: switchIcon,
+    },
+    {
+      key: 'C9300-02-WAN',
+      label: 'C9300-02 WAN',
+      ip: 'IP: 10.29.2.90',
+      category: 'switch',
+      icon: switchIcon,
+    },
+    {
+      key: 'C4431_GDS_RT_04',
+      label: 'C4431_GDS_RT_04',
+      ip: 'IP: 10.29.2.94',
+      category: 'router',
+      icon: routerIcon,
+    },
+    {
+      key: 'C4431_GDS_RT_02',
+      label: 'C4431_GDS_RT_02',
+      ip: 'IP: 10.29.2.92',
+      category: 'router',
+      icon: routerIcon,
+    },
+    {
+      key: 'C4431_GDS_RT_03',
+      label: 'C4431_GDS_RT_03',
+      ip: 'IP: 10.29.2.93',
+      category: 'router',
+      icon: routerIcon,
+    },
+  ],
+  links: [
+    { from: 'NCS-01', to: 'C9300-01-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/6', category: 'close' },
+    { from: 'NCS-01', to: 'C9300-02-WAN', fromText: 'Te0/0/0/3', toText: 'Te1/1/6', category: 'close' },
+    { from: 'NCS-02', to: 'C9300-01-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/8', category: 'close' },
+    { from: 'NCS-02', to: 'C9300-02-WAN', fromText: 'Te0/0/0/2', toText: 'Te1/1/8', category: 'close' },
+    { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_04', fromText: 'Gi1/0/3', toText: 'Gi0/0/0', category: 'close' },
+    { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_02', fromText: 'Gi1/0/4', toText: 'Gi0/3/0', category: 'close' },
+    { from: 'C9300-01-WAN', to: 'C9300-02-WAN', fromText: 'Te1/1/6', toText: 'Stack', category: 'close' },
+    { from: 'C9300-01-WAN', to: 'C4431_GDS_RT_03', fromText: 'Gi1/0/5', toText: 'Gi0/0/0', category: 'close' },
+    { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_04', toText: 'Gi0/0/1', category: 'close' },
+    { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_02', fromText: 'Gi2/0/4', toText: 'Gi3/0/1', category: 'close' },
+    { from: 'C9300-02-WAN', to: 'C4431_GDS_RT_03', fromText: 'Gi1/0/5', toText: 'Gi0/0/1', category: 'close' },
+  ],
+}
+
 export default {
   name: 'PhysicalWanPartner',
   props: {
     nodes: {
       type: Array,
       required: true,
+      default: () => physicalWanData.nodes,
     },
     links: {
       type: Array,
       required: true,
+      default: () => physicalWanData.links,
     },
   },
   data() {
@@ -40,7 +112,7 @@ export default {
         'undoManager.isEnabled': true,
         layout: $(go.ForceDirectedLayout),
         'grid.visible': true,
-        'grid.gridCellSize': new go.Size(10, 10),
+        'grid.gridCellSize': new go.Size(20, 20),
         initialPosition: new go.Point(0, 0),
         initialContentAlignment: go.Spot.TopLeft,
       })

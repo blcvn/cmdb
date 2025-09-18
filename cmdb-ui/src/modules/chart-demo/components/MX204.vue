@@ -1,22 +1,184 @@
 <template>
   <div>
-    <div ref="diagramDiv" style="width: 100%; height: 700px; border: 1px solid #ddd"></div>
+    <div ref="mxDiagramDiv" :style="{ width: '100%', height: height, border: '1px solid #ddd' }"></div>
   </div>
 </template>
 
 <script>
 import * as go from 'gojs'
 
+const mx204Data = {
+  nodes: [
+    // Groups
+    { key: 'INTERNET', isGroup: true, loc: '600 50' },
+    { key: 'EDGE', isGroup: true, loc: '600 200' },
+    { key: 'ACCESS', isGroup: true, loc: '600 350' },
+
+    // Internet Layer
+    {
+      key: 'INTERNET-CLOUD',
+      label: 'INTERNET',
+      subtitle: 'Cloud',
+      type: 'internet',
+      color: '#e0f2fe',
+      group: 'INTERNET',
+      loc: '600 80',
+    },
+    {
+      key: 'FPT',
+      label: 'FPT',
+      subtitle: 'ASN:18403, IP: 58.187.147.1/29',
+      type: 'isp',
+      color: '#fff3cd',
+      group: 'INTERNET',
+      loc: '400 120',
+    },
+    {
+      key: 'CMC',
+      label: 'CMC',
+      subtitle: 'ASN:45903, IP: 113.20.97.249/29',
+      type: 'isp',
+      color: '#fff3cd',
+      group: 'INTERNET',
+      loc: '800 120',
+    },
+    {
+      key: 'VIETTEL',
+      label: 'Viettel',
+      subtitle: 'ASN:7552, IP: 125.234.176.153/30',
+      type: 'isp',
+      color: '#fff3cd',
+      group: 'INTERNET',
+      loc: '200 120',
+    },
+
+    // DDoS Protection Layer
+    {
+      key: 'DDOS-01',
+      label: 'DDOS',
+      subtitle: 'FPT Protection',
+      type: 'ddos',
+      color: '#f8d7da',
+      group: 'INTERNET',
+      loc: '400 160',
+    },
+    {
+      key: 'DDOS-02',
+      label: 'DDOS',
+      subtitle: 'CMC Protection',
+      type: 'ddos',
+      color: '#f8d7da',
+      group: 'INTERNET',
+      loc: '800 160',
+    },
+
+    // Edge Router Layer
+    {
+      key: 'MX204-EDGE-01',
+      label: 'MX204-EDGE-01',
+      subtitle: 'Edge Router',
+      type: 'edge',
+      color: '#d1ecf1',
+      group: 'EDGE',
+      loc: '450 240',
+    },
+    {
+      key: 'MX204-EDGE-02',
+      label: 'MX204-EDGE-02',
+      subtitle: 'Edge Router',
+      type: 'edge',
+      color: '#d1ecf1',
+      group: 'EDGE',
+      loc: '750 240',
+    },
+
+    // Access Layer
+    {
+      key: 'MX-LEAF-01',
+      label: 'LEAF-01',
+      subtitle: 'Access Switch',
+      type: 'access',
+      color: '#d4edda',
+      group: 'ACCESS',
+      loc: '400 400',
+    },
+    {
+      key: 'MX-LEAF-02',
+      label: 'LEAF-02',
+      subtitle: 'Access Switch',
+      type: 'access',
+      color: '#d4edda',
+      group: 'ACCESS',
+      loc: '800 400',
+    },
+    {
+      key: 'C9300-01',
+      label: 'C9300-01',
+      subtitle: 'Management Switch',
+      type: 'mgmt',
+      color: '#e2e3e5',
+      group: 'ACCESS',
+      loc: '300 320',
+    },
+    {
+      key: 'C9300-02',
+      label: 'C9300-02',
+      subtitle: 'Management Switch',
+      type: 'mgmt',
+      color: '#e2e3e5',
+      group: 'ACCESS',
+      loc: '900 320',
+    },
+  ],
+  links: [
+    // Internet to DDoS connections
+    { from: 'INTERNET-CLOUD', to: 'DDOS-01', label: 'G1-OUT FPT', isHighlighted: true },
+    { from: 'INTERNET-CLOUD', to: 'DDOS-02', label: 'G3-OUT CMC', isHighlighted: true },
+
+    // DDoS to Edge connections
+    { from: 'DDOS-01', to: 'MX204-EDGE-01', label: 'Xe-0/1/3 (.4)', isHighlighted: true },
+    { from: 'DDOS-01', to: 'MX204-EDGE-01', label: 'Xe-0/1/2 (.154)', isHighlighted: true },
+    { from: 'DDOS-02', to: 'MX204-EDGE-02', label: 'Xe-0/1/3 (.250)', isHighlighted: true },
+    { from: 'DDOS-02', to: 'MX204-EDGE-02', label: 'Xe-0/1/2', isHighlighted: true },
+
+    // Edge to Management connections
+    { from: 'MX204-EDGE-01', to: 'C9300-01', label: 'Gi1/0/42 (MGMT)', isHighlighted: false },
+    { from: 'MX204-EDGE-02', to: 'C9300-02', label: 'Gi2/0/42 (MGMT)', isHighlighted: false },
+
+    // Edge to Leaf connections (ae0 aggregation)
+    { from: 'MX204-EDGE-01', to: 'MX-LEAF-01', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-01', to: 'MX-LEAF-01', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-01', to: 'MX-LEAF-02', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-01', to: 'MX-LEAF-02', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+
+    { from: 'MX204-EDGE-02', to: 'MX-LEAF-02', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-02', to: 'MX-LEAF-02', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-02', to: 'MX-LEAF-01', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+    { from: 'MX204-EDGE-02', to: 'MX-LEAF-01', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+
+    // Leaf to Edge return connections
+    { from: 'MX-LEAF-01', to: 'MX204-EDGE-01', label: 'E1/14 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-01', to: 'MX204-EDGE-01', label: 'E1/15 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-01', to: 'MX204-EDGE-02', label: 'E1/14 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-01', to: 'MX204-EDGE-02', label: 'E1/15 (ae0)', isHighlighted: true },
+
+    { from: 'MX-LEAF-02', to: 'MX204-EDGE-02', label: 'E1/14 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-02', to: 'MX204-EDGE-02', label: 'E1/15 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-02', to: 'MX204-EDGE-01', label: 'E1/14 (ae0)', isHighlighted: true },
+    { from: 'MX-LEAF-02', to: 'MX204-EDGE-01', label: 'E1/15 (ae0)', isHighlighted: true },
+  ],
+}
+
 export default {
   name: 'NetworkTopology',
   props: {
     nodes: {
       type: Array,
-      default: () => [],
+      default: () => mx204Data.nodes,
     },
     links: {
       type: Array,
-      default: () => [],
+      default: () => mx204Data.links,
     },
     height: {
       type: String,
@@ -27,7 +189,9 @@ export default {
     return { diagram: null }
   },
   mounted() {
+      this.$nextTick(() => {
     this.initDiagram()
+  })
   },
   beforeDestroy() {
     if (this.diagram) this.diagram.div = null
@@ -49,7 +213,7 @@ export default {
   methods: {
     initDiagram() {
       const $ = go.GraphObject.make
-      const diagramDiv = this.$refs.diagramDiv
+      const diagramDiv = this.$refs.mxDiagramDiv
 
       const diagram = $(go.Diagram, diagramDiv, {
         initialContentAlignment: go.Spot.TopCenter,
@@ -66,11 +230,10 @@ export default {
       )
       diagram.grid.visible = true
 
-      // --- Node template: bind location từ nodeData.loc ---
+      // --- Node template ---
       diagram.nodeTemplate = $(
         go.Node,
         'Auto',
-        // location binding (expects "x y" string in nodeData.loc)
         new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
         $(
           go.Shape,
@@ -91,7 +254,7 @@ export default {
         )
       )
 
-      // --- Group template (dashed box with heading) ---
+      // --- Group template ---
       diagram.groupTemplate = $(
         go.Group,
         'Auto',
@@ -102,9 +265,9 @@ export default {
         },
         $(go.Shape, 'RoundedRectangle', {
           fill: 'transparent',
-          stroke: '#444', // darker border
+          stroke: '#444',
           strokeDashArray: [6, 3],
-          strokeWidth: 2, // thicker
+          strokeWidth: 2,
         }),
         $(
           go.Panel,
@@ -114,57 +277,17 @@ export default {
         )
       )
 
-      // --- Link template: label ở midpoint, offset lên trên, tránh chồng node ---
+      // --- Link template ---
       diagram.linkTemplate = $(
         go.Link,
         {
-          routing: go.Link.Normal, // straight line
-          curve: go.Link.None, // no curve
-          corner: 0, // remove rounded corners
-          toShortLength: 0, // arrow starts directly at node border
-        },
-        $(go.Shape, { strokeWidth: 2, stroke: '#333' }),
-        // optional label
-        $(
-          go.Panel,
-          'Auto',
-          {
-            segmentIndex: 0,
-            segmentFraction: 0.5, // midpoint
-            segmentOffset: new go.Point(0, -10),
-          },
-          $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
-          $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'label'))
-        ),
-         // START label (near 'from' node)
-        $(
-          go.Panel,
-          'Auto',
-          { segmentIndex: 0, segmentFraction: 0, segmentOffset: new go.Point(0, -10) },
-          $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
-          $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'fromLabel'))
-        ),
-
-        // END label (near 'to' node)
-        $(
-          go.Panel,
-          'Auto',
-          { segmentIndex: -1, segmentFraction: 1, segmentOffset: new go.Point(0, -10) },
-          $(go.Shape, 'RoundedRectangle', { fill: 'white', stroke: '#ccc', strokeWidth: 0.5 }),
-          $(go.TextBlock, { margin: 3, font: '9px sans-serif' }, new go.Binding('text', 'toLabel'))
-        )
-      )
-
-      diagram.linkTemplate = $(
-        go.Link,
-        {
-          routing: go.Link.Normal, // straight line
-          curve: go.Link.None, // no curve
-          corner: 0, // straight corners
+          routing: go.Link.Normal,
+          curve: go.Link.None,
+          corner: 0,
           toShortLength: 0,
           fromShortLength: 0,
         },
-        $(go.Shape, { strokeWidth: 2, stroke: '#333' }),
+        $(go.Shape, { strokeWidth: 2, stroke: '#333' })
       )
 
       this.diagram = diagram
@@ -172,17 +295,14 @@ export default {
     },
     updateDiagram() {
       if (this.diagram && this.nodes.length > 0) {
-        const diagramDiv = this.$refs.diagramDiv
+        const diagramDiv = this.$refs.mxDiagramDiv
         const width = Math.max(diagramDiv.clientWidth || 1200, 1100)
 
-        // Calculate positions for nodes with static layout
         const computedNodes = JSON.parse(JSON.stringify(this.nodes))
         const centerX = width / 2
 
-        // Static positioning based on node keys for better control
         computedNodes.forEach((node) => {
           if (node.isGroup) {
-            // Group positions
             const groupPositions = {
               SPINE: { x: centerX, y: 50 },
               LEAF: { x: centerX, y: 200 },
@@ -192,11 +312,8 @@ export default {
               ACCESS: { x: centerX, y: 280 },
             }
             const pos = groupPositions[node.key]
-            if (pos) {
-              node.loc = `${pos.x} ${pos.y}`
-            }
+            if (pos) node.loc = `${pos.x} ${pos.y}`
           } else {
-            // Individual node positions
             const nodePositions = {
               // Internet layer
               'INTERNET-CLOUD': { x: centerX, y: 80 },
@@ -238,7 +355,6 @@ export default {
             if (pos) {
               node.loc = `${pos.x} ${pos.y}`
             } else {
-              // Fallback positioning for unknown nodes
               const typeToY = {
                 spine: 120,
                 leaf: 320,

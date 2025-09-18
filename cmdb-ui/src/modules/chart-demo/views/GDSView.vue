@@ -1,42 +1,16 @@
 <template>
-  <div class="w-full">
-    <h2>Logical Topology</h2>
-    <NetworkDiagram :nodes="diagramNodes" :links="diagramLinks" />
-
-    <h2 style="margin-top: 40px">ACI</h2>
-    <FabricTopology />
-
-    <h2 style="margin-top: 40px">MX204 Edge Topology</h2>
-    <MX204EdgeTopology />
-
-    <h2 style="margin-top: 40px">ASR-CoreWan & WanPartner</h2>
-    <AsrCoreWan :nodes="asrData.nodes" :links="asrData.links" />
-
-    <h2 style="margin-top: 40px">Physical Wan Partner</h2>
-    <PhysicalWanPartner :nodes="physicalWanData.nodes" :links="physicalWanData.links" />
-
-    <h2 style="margin-top: 40px">MHO</h2>
-    <Mho />
-
-    <h2 style="margin-top: 40px">PAN</h2>
-    <Pan />
-
-    <h2 style="margin-top: 40px">RouterVPN</h2>
-    <RouterVPN />
-
-    <h2 style="margin-top: 40px">Citrix</h2>
-    <Citrix />
-
+  <div v-if="isAdmin" class="w-full">
     <h2 style="margin-top: 40px">Example Topology</h2>
-    <!-- Truyền topologyData vào ExampleTopology -->
-    <ExampleTopology :topologyData="topologyData" />
+  </div>
+  <div v-else>
+    <a-result status="403" title="403" sub-title="Topology view access required" />
   </div>
 </template>
 
 <script>
+import LogicalTopology from '../components/LogicalTopology.vue'
+import TemplateDiagram from '../components/ACI.vue'
 import FabricTopology from '../components/FabricTopology.vue'
-import MX204EdgeTopology from '../components/MX204EdgeTopology.vue'
-import NetworkDiagram from '../components/NetworkDiagram.vue'
 import AsrCoreWan from '../components/AsrCoreWan.vue'
 import PhysicalWanPartner from '../components/PhysicalWanPartner.vue'
 import Mho from '../components/Mho.vue'
@@ -44,18 +18,20 @@ import Pan from '../components/Pan.vue'
 import ExampleTopology from '../components/ExampleTopology'
 import RouterVPN from '../components/RouterVPN.vue'
 import Citrix from '../components/Citrix.vue'
+import DiagramViewer from '../components/DiagramViewer.vue'
+import { currentUser } from '../../acl/api/user'
 
 // SVG icons
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
-import node from '@/assets/icons/node-svgrepo-com.svg'
+import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 
 export default {
   name: 'GDSView',
   components: {
-    NetworkDiagram,
+    LogicalTopology,
+    TemplateDiagram,
     FabricTopology,
-    MX204EdgeTopology,
     AsrCoreWan,
     PhysicalWanPartner,
     Mho,
@@ -63,9 +39,12 @@ export default {
     ExampleTopology,
     RouterVPN,
     Citrix,
+    DiagramViewer,
   },
+  setup() {},
   data() {
     return {
+      isAdmin: false,
       topologyData: {
         class: 'go.GraphLinksModel',
         nodeDataArray: [
@@ -108,70 +87,289 @@ export default {
         ],
       },
       // NETWORK TOPOLOGY DATA
-      diagramNodes: [
-        // Groups
-        { key: 'LEAF', isGroup: true, category: 'band', text: 'LEAF', loc: '0 120', size: '1180 90' },
-        { key: 'DMZ', isGroup: true, category: 'area', text: 'DMZ' },
-        { key: 'CORE', isGroup: true, category: 'area', text: 'CORE' },
+      networkData: {
+        nodes: [
+          // Groups
+          { key: 'DMZ', isGroup: true, category: 'area', text: 'DMZ' },
+          { key: 'CORE', isGroup: true, category: 'area', text: 'CORE' },
+          // LEAF
+          { key: 'LEAF', category: 'net', text: 'LEAF', loc: '0 120', size: '1180 90' },
+          // INTERNET EDGE cluster (phải, phía trên LEAF)
+          { key: 'INTERNET', category: 'label', text: 'INTERNET', loc: '520 -60' },
+          { key: 'EDGE', category: 'label', text: 'INTERNET EDGE', loc: '520 -10' },
+          { key: 'LB', category: 'net', text: 'LB', loc: '470 40', size: '90 54' },
+          { key: 'VPN', category: 'net', text: 'VPN ROUTER', loc: '570 40', size: '120 54' },
 
-        // INTERNET EDGE cluster (phải, phía trên LEAF)
-        { key: 'INTERNET', category: 'label', text: 'INTERNET', loc: '520 -60' },
-        { key: 'EDGE', category: 'label', text: 'INTERNET EDGE', loc: '520 -10' },
-        { key: 'LB', category: 'net', text: 'LB', loc: '470 40', size: '90 54' },
-        { key: 'VPN', category: 'net', text: 'VPN ROUTER', loc: '570 40', size: '120 54' },
+          // DMZ area members (trái, trên LEAF)
+          { key: 'DMZ-SRV', category: 'default', text: 'DMZ SERVER', group: 'DMZ', loc: '-430 -100', size: '120 64' },
+          { key: 'WEB-SRV', category: 'default', text: 'WEB SERVER', group: 'DMZ', loc: '-300 -100', size: '120 64' },
 
-        // DMZ area members (trái, trên LEAF)
-        { key: 'DMZ-SRV', category: 'default', text: 'DMZ SERVER', group: 'DMZ', loc: '-430 -100', size: '120 64' },
-        { key: 'WEB-SRV', category: 'default', text: 'WEB SERVER', group: 'DMZ', loc: '-300 -100', size: '120 64' },
-        { key: 'WAF', category: 'security', text: 'WAF DMZ', group: 'DMZ', loc: '-150 60', size: '120 54' },
-        { key: 'IPS', category: 'security', text: 'IPS', group: 'DMZ', loc: '-150 10', size: '120 54' },
-        {
-          key: 'FW-DMZ',
-          category: 'security',
-          text: 'FIREWALL DMZ PALO ALTO',
-          group: 'DMZ',
-          loc: '-60 -40',
-          size: '160 64',
-        },
+          // DMZ firewall
+          {
+            key: 'FW-DMZ',
+            category: 'security',
+            text: 'FIREWALL DMZ PALO ALTO',
+            loc: '30 -100',
+            size: '160 64',
+          },
+          { key: 'WAF', category: 'security', text: 'WAF DMZ', loc: '0 0', size: '120 54' },
+          { key: 'IPS', category: 'security', text: 'IPS', loc: '0 -40', size: '120 54' },
 
-        // CORE area members (giữa dưới LEAF)
-        { key: 'JUMP', category: 'default', text: 'JUMP SERVER', group: 'CORE', loc: '-260 220', size: '120 64' },
-        { key: 'CORE-SRV', category: 'default', text: 'CORE', group: 'CORE', loc: '-160 220', size: '120 64' },
-        {
-          key: 'FW-CORE',
-          category: 'security',
-          text: 'FIREWALL CORE CHECKPOINT',
-          group: 'CORE',
-          loc: '160 190',
-          size: '190 64',
-        },
+          // CORE area members (giữa dưới LEAF)
+          { key: 'JUMP', category: 'default', text: 'JUMP SERVER', group: 'CORE', loc: '-260 220', size: '120 64' },
+          { key: 'CORE-SRV', category: 'default', text: 'CORE', group: 'CORE', loc: '-160 220', size: '120 64' },
 
-        // WAN (phải, ngang LEAF)
-        { key: 'WAN', category: 'net', text: 'WAN', loc: '760 120', size: '120 54' },
-      ],
-      diagramLinks: [
-        // INTERNET EDGE flows
-        { from: 'INTERNET', to: 'EDGE' },
-        { from: 'EDGE', to: 'LB' },
-        { from: 'EDGE', to: 'VPN' },
-        { from: 'LB', to: 'LEAF' },
-        { from: 'VPN', to: 'LEAF' },
+          // WAN (phải, ngang LEAF)
+          { key: 'WAN', category: 'net', text: 'WAN', loc: '760 120', size: '120 54' },
+        ],
+        links: [
+          // INTERNET EDGE flows
+          { from: 'INTERNET', to: 'EDGE' },
+          { from: 'EDGE', to: 'LB' },
+          { from: 'EDGE', to: 'VPN' },
+          { from: 'LB', to: 'LEAF' },
+          { from: 'VPN', to: 'LEAF' },
 
-        // DMZ chain
-        { from: 'DMZ-SRV', to: 'WAF' },
-        { from: 'WEB-SRV', to: 'WAF' },
-        { from: 'WAF', to: 'IPS' },
-        { from: 'IPS', to: 'FW-DMZ' },
-        { from: 'FW-DMZ', to: 'LEAF' },
+          // DMZ chain
+          { from: 'DMZ-SRV', to: 'LEAF' },
+          { from: 'WEB-SRV', to: 'LEAF' },
+          { from: 'WAF', to: 'IPS' },
+          { from: 'IPS', to: 'FW-DMZ' },
+          { from: 'FW-DMZ', to: 'LEAF' },
 
-        // CORE chain
-        { from: 'LEAF', to: 'FW-CORE' },
-        { from: 'FW-CORE', to: 'CORE-SRV' },
-        { from: 'FW-CORE', to: 'JUMP' },
+          // CORE chain
+          { from: 'LEAF', to: 'FW-CORE' },
+          { from: 'FW-CORE', to: 'CORE-SRV' },
+          { from: 'FW-CORE', to: 'JUMP' },
 
-        // LEAF to WAN
-        { from: 'LEAF', to: 'WAN' },
-      ],
+          // LEAF to WAN
+          { from: 'LEAF', to: 'WAN' },
+          { from: 'LEAF', to: 'WAF' },
+          { from: 'CORE', to: 'LEAF' },
+        ],
+      },
+      // ACI DATA
+      aciData: {
+        nodes: [
+          // Groups
+          { key: 'SPINE', isGroup: true },
+          { key: 'LEAF', isGroup: true },
+          { key: 'APIC', isGroup: true },
+
+          // SPINE nodes
+          { key: 'SPINE-01', label: 'SPINE-01', type: 'spine', color: '#9ec5fe', group: 'SPINE' },
+          { key: 'SPINE-02', label: 'SPINE-02', type: 'spine', color: '#9ec5fe', group: 'SPINE' },
+
+          // LEAF nodes (10 nodes như mẫu)
+          { key: 'LEAF-01', label: 'LEAF-01', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-02', label: 'LEAF-02', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-03', label: 'LEAF-03', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-04', label: 'LEAF-04', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-05', label: 'LEAF-05', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-06', label: 'LEAF-06', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-07', label: 'LEAF-07', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-08', label: 'LEAF-08', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-09', label: 'LEAF-09', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+          { key: 'LEAF-10', label: 'LEAF-10', type: 'leaf', color: '#bde0fe', group: 'LEAF' },
+
+          // APIC nodes
+          { key: 'APIC-01', label: 'APIC-01', type: 'apic', color: '#d6f7dd', group: 'APIC' },
+          { key: 'APIC-02', label: 'APIC-02', type: 'apic', color: '#d6f7dd', group: 'APIC' },
+          { key: 'APIC-03', label: 'APIC-03', type: 'apic', color: '#d6f7dd', group: 'APIC' },
+        ],
+        links: [
+          // SPINE-01 connections (highlighted in blue)
+          { from: 'SPINE-01', to: 'LEAF-01', label: 'E1/59', isHighlighted: true },
+          { from: 'SPINE-01', to: 'LEAF-02', label: 'E1/59', isHighlighted: true },
+          { from: 'SPINE-01', to: 'LEAF-03', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-04', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-05', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-06', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-07', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-08', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-09', label: 'E1/23-32' },
+          { from: 'SPINE-01', to: 'LEAF-10', label: 'E1/23-32' },
+
+          // SPINE-02 connections (highlighted in blue)
+          { from: 'SPINE-02', to: 'LEAF-01', label: 'E1/60', isHighlighted: true },
+          { from: 'SPINE-02', to: 'LEAF-02', label: 'E1/60', isHighlighted: true },
+          { from: 'SPINE-02', to: 'LEAF-03', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-04', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-05', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-06', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-07', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-08', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-09', label: 'E1/23-32' },
+          { from: 'SPINE-02', to: 'LEAF-10', label: 'E1/23-32' },
+
+          // LEAF to APIC connections (highlighted in blue)
+          { from: 'LEAF-01', to: 'APIC-01', label: 'E1/1', isHighlighted: true },
+          { from: 'LEAF-02', to: 'APIC-02', label: 'E1/2', isHighlighted: true },
+          { from: 'LEAF-03', to: 'APIC-03', label: 'E1/3', isHighlighted: true },
+        ],
+      },
+      // MX204 Edge Topology DATA
+      mx204Data: {
+        nodes: [
+          // Groups
+          { key: 'INTERNET', isGroup: true, loc: '600 50' },
+          { key: 'EDGE', isGroup: true, loc: '600 200' },
+          { key: 'ACCESS', isGroup: true, loc: '600 350' },
+
+          // Internet Layer
+          {
+            key: 'INTERNET-CLOUD',
+            label: 'INTERNET',
+            subtitle: 'Cloud',
+            type: 'internet',
+            color: '#e0f2fe',
+            group: 'INTERNET',
+            loc: '600 80',
+          },
+          {
+            key: 'FPT',
+            label: 'FPT',
+            subtitle: 'ASN:18403, IP: 58.187.147.1/29',
+            type: 'isp',
+            color: '#fff3cd',
+            group: 'INTERNET',
+            loc: '400 120',
+          },
+          {
+            key: 'CMC',
+            label: 'CMC',
+            subtitle: 'ASN:45903, IP: 113.20.97.249/29',
+            type: 'isp',
+            color: '#fff3cd',
+            group: 'INTERNET',
+            loc: '800 120',
+          },
+          {
+            key: 'VIETTEL',
+            label: 'Viettel',
+            subtitle: 'ASN:7552, IP: 125.234.176.153/30',
+            type: 'isp',
+            color: '#fff3cd',
+            group: 'INTERNET',
+            loc: '200 120',
+          },
+
+          // DDoS Protection Layer
+          {
+            key: 'DDOS-01',
+            label: 'DDOS',
+            subtitle: 'FPT Protection',
+            type: 'ddos',
+            color: '#f8d7da',
+            group: 'INTERNET',
+            loc: '400 160',
+          },
+          {
+            key: 'DDOS-02',
+            label: 'DDOS',
+            subtitle: 'CMC Protection',
+            type: 'ddos',
+            color: '#f8d7da',
+            group: 'INTERNET',
+            loc: '800 160',
+          },
+
+          // Edge Router Layer
+          {
+            key: 'MX204-EDGE-01',
+            label: 'MX204-EDGE-01',
+            subtitle: 'Edge Router',
+            type: 'edge',
+            color: '#d1ecf1',
+            group: 'EDGE',
+            loc: '450 240',
+          },
+          {
+            key: 'MX204-EDGE-02',
+            label: 'MX204-EDGE-02',
+            subtitle: 'Edge Router',
+            type: 'edge',
+            color: '#d1ecf1',
+            group: 'EDGE',
+            loc: '750 240',
+          },
+
+          // Access Layer
+          {
+            key: 'MX-LEAF-01',
+            label: 'LEAF-01',
+            subtitle: 'Access Switch',
+            type: 'access',
+            color: '#d4edda',
+            group: 'ACCESS',
+            loc: '400 400',
+          },
+          {
+            key: 'MX-LEAF-02',
+            label: 'LEAF-02',
+            subtitle: 'Access Switch',
+            type: 'access',
+            color: '#d4edda',
+            group: 'ACCESS',
+            loc: '800 400',
+          },
+          {
+            key: 'C9300-01',
+            label: 'C9300-01',
+            subtitle: 'Management Switch',
+            type: 'mgmt',
+            color: '#e2e3e5',
+            group: 'ACCESS',
+            loc: '300 320',
+          },
+          {
+            key: 'C9300-02',
+            label: 'C9300-02',
+            subtitle: 'Management Switch',
+            type: 'mgmt',
+            color: '#e2e3e5',
+            group: 'ACCESS',
+            loc: '900 320',
+          },
+        ],
+        links: [
+          // Internet to DDoS connections
+          { from: 'INTERNET-CLOUD', to: 'DDOS-01', label: 'G1-OUT FPT', isHighlighted: true },
+          { from: 'INTERNET-CLOUD', to: 'DDOS-02', label: 'G3-OUT CMC', isHighlighted: true },
+
+          // DDoS to Edge connections
+          { from: 'DDOS-01', to: 'MX204-EDGE-01', label: 'Xe-0/1/3 (.4)', isHighlighted: true },
+          { from: 'DDOS-01', to: 'MX204-EDGE-01', label: 'Xe-0/1/2 (.154)', isHighlighted: true },
+          { from: 'DDOS-02', to: 'MX204-EDGE-02', label: 'Xe-0/1/3 (.250)', isHighlighted: true },
+          { from: 'DDOS-02', to: 'MX204-EDGE-02', label: 'Xe-0/1/2', isHighlighted: true },
+
+          // Edge to Management connections
+          { from: 'MX204-EDGE-01', to: 'C9300-01', label: 'Gi1/0/42 (MGMT)', isHighlighted: false },
+          { from: 'MX204-EDGE-02', to: 'C9300-02', label: 'Gi2/0/42 (MGMT)', isHighlighted: false },
+
+          // Edge to Leaf connections (ae0 aggregation)
+          { from: 'MX204-EDGE-01', to: 'MX-LEAF-01', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-01', to: 'MX-LEAF-01', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-01', to: 'MX-LEAF-02', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-01', to: 'MX-LEAF-02', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+
+          { from: 'MX204-EDGE-02', to: 'MX-LEAF-02', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-02', to: 'MX-LEAF-02', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-02', to: 'MX-LEAF-01', label: 'Xe-0/1/0 (ae0)', isHighlighted: true },
+          { from: 'MX204-EDGE-02', to: 'MX-LEAF-01', label: 'Xe-0/1/1 (ae0)', isHighlighted: true },
+
+          // Leaf to Edge return connections
+          { from: 'MX-LEAF-01', to: 'MX204-EDGE-01', label: 'E1/14 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-01', to: 'MX204-EDGE-01', label: 'E1/15 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-01', to: 'MX204-EDGE-02', label: 'E1/14 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-01', to: 'MX204-EDGE-02', label: 'E1/15 (ae0)', isHighlighted: true },
+
+          { from: 'MX-LEAF-02', to: 'MX204-EDGE-02', label: 'E1/14 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-02', to: 'MX204-EDGE-02', label: 'E1/15 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-02', to: 'MX204-EDGE-01', label: 'E1/14 (ae0)', isHighlighted: true },
+          { from: 'MX-LEAF-02', to: 'MX204-EDGE-01', label: 'E1/15 (ae0)', isHighlighted: true },
+        ],
+      },
       // AsrCoreWan Data
       asrData: {
         nodes: [
@@ -179,8 +377,8 @@ export default {
           { key: 'SW2', label: 'C9300_GDS\nSW_WAN_ST\nA', category: 'core', icon: switchIcon },
           { key: 'PO2_1', label: 'Po2', category: 'po' },
           { key: 'PO2_2', label: 'Po2', category: 'po' },
-          { key: 'NCS1', label: 'NCS-01\n10.29.2.86', category: 'core', icon: node },
-          { key: 'NCS2', label: 'NCS-01\n10.29.2.87', category: 'core', icon: node },
+          { key: 'NCS1', label: 'NCS-01\n10.29.2.86', category: 'core', icon: nodeIcon },
+          { key: 'NCS2', label: 'NCS-01\n10.29.2.87', category: 'core', icon: nodeIcon },
           { key: 'C9300-01', label: 'C9300-01', category: 'leaf', icon: routerIcon },
           { key: 'C9300-02', label: 'C9300-02', category: 'leaf', icon: routerIcon },
           { key: 'PO1_1', label: 'Po1', category: 'po' },
@@ -285,9 +483,52 @@ export default {
       },
       // MHO
       mhoData: {
-          nodes: [],
-          links: [],
-      }
+        nodes: [
+          { key: 'C9300-01', label: 'C9300-01', category: 'switch', icon: switchIcon },
+          { key: 'C9300-02', label: 'C9300-02', category: 'switch', icon: switchIcon },
+          { key: 'CP-MHO-01', label: 'CP-MHO-01', category: 'mho', icon: nodeIcon },
+          { key: 'CP-MHO-02', label: 'CP-MHO-02', category: 'mho', icon: nodeIcon },
+          { key: 'E5-8-1', label: 'E5-8', category: 'aggregation' },
+          { key: 'E5-8-2', label: 'E5-8', category: 'aggregation' },
+          { key: 'E1-4-7-1', label: 'E1/4-7', category: 'aggregation' },
+          { key: 'E1-4-7-2', label: 'E1/4-7', category: 'aggregation' },
+          { key: 'LEAF-01', label: 'LEAF-01', category: 'switch', icon: switchIcon },
+          { key: 'LEAF-02', label: 'LEAF-02', category: 'switch', icon: switchIcon },
+        ],
+        links: [
+          { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/37', toText: 'MGMT-02' },
+          { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/38', toText: 'MGMT-01' },
+          { from: 'C9300-01', to: 'CP-MHO-01', fromText: 'Gi1/0/39', toText: 'E1' },
+          { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/37', toText: 'MGMT-02' },
+          { from: 'C9300-02', to: 'CP-MHO-02', fromText: 'Gi2/0/38', toText: 'MGMT-01' },
+          { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/37' },
+          { from: 'C9300-02', to: 'CP-MHO-02', label: 'Gi2/0/39' },
+          { from: 'CP-MHO-01', to: 'CP-MHO-02', fromText: 'E48', toText: 'E48' },
+          { from: 'CP-MHO-01', to: 'E5-8-1' },
+          { from: 'CP-MHO-02', to: 'E5-8-2' },
+          { from: 'E5-8-1', to: 'E5-8-2', label: 'bond1', category: 'bond' },
+          { from: 'E5-8-1', to: 'E1-4-7-1' },
+          { from: 'E5-8-1', to: 'E1-4-7-2' },
+          { from: 'E5-8-2', to: 'E1-4-7-1' },
+          { from: 'E5-8-2', to: 'E1-4-7-2' },
+          { from: 'E1-4-7-1', to: 'LEAF-01' },
+          { from: 'E1-4-7-2', to: 'LEAF-02' },
+        ],
+      },
+      // PAN
+      panData: {
+        nodes: [],
+        links: [],
+      },
+    }
+  },
+  async mounted() {
+    try {
+      const { result } = await currentUser()
+      this.isAdmin = result.role.permissions.includes('admin')
+    } catch (error) {
+      console.error('Failed to check admin role:', error)
+      this.isAdmin = false
     }
   },
 }
