@@ -10,6 +10,67 @@ import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
 import ips from '@/assets/ips.png'
 import waf from '@/assets/waf.png'
+import { getTopologyById } from '../api/topology'
+
+const panData = {
+  nodes: [
+    // Top layer - LEAF switches
+    { key: 'LEAF-01-TOP', label: 'LEAF-01', category: 'leaf', icon: switchIcon },
+    { key: 'LEAF-02-TOP', label: 'LEAF-02', category: 'leaf', icon: switchIcon },
+
+    // ae2 labels for top layer
+    { key: 'ae2-left-top', label: 'ae2', category: 'ae' },
+    { key: 'ae2-right-top', label: 'ae2', category: 'ae' },
+
+    // Second layer - PAN switches
+    { key: 'PAN-01', label: 'PAN-01', category: 'pan', icon: routerIcon },
+    { key: 'PAN-02', label: 'PAN-02', category: 'pan', icon: routerIcon },
+
+    // ae1 labels for middle layer
+    { key: 'ae1-left', label: 'ae1', category: 'ae' },
+    { key: 'ae1-right', label: 'ae1', category: 'ae' },
+
+    // Core network devices
+    { key: 'IPS', label: 'IPS Tipping Point', category: 'ips', icon: ips },
+    { key: 'WAF', label: 'WAF Imperva', category: 'waf', icon: waf },
+
+    // Bottom layer - LEAF switches
+    { key: 'LEAF-01-BOTTOM', label: 'LEAF-01', category: 'leaf', icon: switchIcon },
+    { key: 'LEAF-02-BOTTOM', label: 'LEAF-02', category: 'leaf', icon: switchIcon },
+  ],
+
+  // Link Data - recreating the crossing pattern and connections
+  links: [
+    // Top LEAF to ae2 connections
+    { from: 'LEAF-01-TOP', to: 'ae2-left-top' },
+    { from: 'LEAF-02-TOP', to: 'ae2-right-top' },
+
+    // ae2 to PAN connections (crossed)
+    { from: 'ae2-left-top', to: 'PAN-01' },
+    { from: 'ae2-left-top', to: 'PAN-02' },
+    { from: 'ae2-right-top', to: 'PAN-01' },
+    { from: 'ae2-right-top', to: 'PAN-02' },
+
+    // HA connections between PANs
+    { from: 'PAN-01', to: 'PAN-02', label: 'HA-1', category: 'ha' },
+    { from: 'PAN-01', to: 'PAN-02', label: 'HA-2', category: 'ha' },
+
+    // PAN to ae1 connections
+    { from: 'PAN-01', to: 'ae1-left' },
+    { from: 'PAN-02', to: 'ae1-right' },
+
+    // ae1 to core devices connections
+    { from: 'ae1-left', to: 'IPS' },
+    { from: 'ae1-right', to: 'IPS' },
+    { from: 'IPS', to: 'WAF' },
+
+    // Core devices to bottom LEAF connections (crossed)
+    { from: 'WAF', to: 'LEAF-01-BOTTOM' },
+    { from: 'WAF', to: 'LEAF-02-BOTTOM' },
+    { from: 'IPS', to: 'LEAF-01-BOTTOM' },
+    { from: 'IPS', to: 'LEAF-02-BOTTOM' },
+  ],
+}
 
 export default {
   name: 'NetworkTopologyDiagram',
@@ -19,7 +80,7 @@ export default {
     }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) {
@@ -27,6 +88,21 @@ export default {
     }
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(7)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = panData.nodes
+        this.links = panData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       this.diagram = $(go.Diagram, 'networkTopologyDiv', {
@@ -285,66 +361,7 @@ export default {
         )
       )
 
-      // Node Data with icons
-      const nodeDataArray = [
-        // Top layer - LEAF switches
-        { key: 'LEAF-01-TOP', label: 'LEAF-01', category: 'leaf', icon: switchIcon },
-        { key: 'LEAF-02-TOP', label: 'LEAF-02', category: 'leaf', icon: switchIcon },
-
-        // ae2 labels for top layer
-        { key: 'ae2-left-top', label: 'ae2', category: 'ae' },
-        { key: 'ae2-right-top', label: 'ae2', category: 'ae' },
-
-        // Second layer - PAN switches
-        { key: 'PAN-01', label: 'PAN-01', category: 'pan', icon: routerIcon },
-        { key: 'PAN-02', label: 'PAN-02', category: 'pan', icon: routerIcon },
-
-        // ae1 labels for middle layer
-        { key: 'ae1-left', label: 'ae1', category: 'ae' },
-        { key: 'ae1-right', label: 'ae1', category: 'ae' },
-
-        // Core network devices
-        { key: 'IPS', label: 'IPS Tipping Point', category: 'ips', icon: ips },
-        { key: 'WAF', label: 'WAF Imperva', category: 'waf', icon: waf },
-
-        // Bottom layer - LEAF switches
-        { key: 'LEAF-01-BOTTOM', label: 'LEAF-01', category: 'leaf', icon: switchIcon },
-        { key: 'LEAF-02-BOTTOM', label: 'LEAF-02', category: 'leaf', icon: switchIcon },
-      ]
-
-      // Link Data - recreating the crossing pattern and connections
-      const linkDataArray = [
-        // Top LEAF to ae2 connections
-        { from: 'LEAF-01-TOP', to: 'ae2-left-top' },
-        { from: 'LEAF-02-TOP', to: 'ae2-right-top' },
-
-        // ae2 to PAN connections (crossed)
-        { from: 'ae2-left-top', to: 'PAN-01' },
-        { from: 'ae2-left-top', to: 'PAN-02' },
-        { from: 'ae2-right-top', to: 'PAN-01' },
-        { from: 'ae2-right-top', to: 'PAN-02' },
-
-        // HA connections between PANs
-        { from: 'PAN-01', to: 'PAN-02', label: 'HA-1', category: 'ha' },
-        { from: 'PAN-01', to: 'PAN-02', label: 'HA-2', category: 'ha' },
-
-        // PAN to ae1 connections
-        { from: 'PAN-01', to: 'ae1-left' },
-        { from: 'PAN-02', to: 'ae1-right' },
-
-        // ae1 to core devices connections
-        { from: 'ae1-left', to: 'IPS' },
-        { from: 'ae1-right', to: 'IPS' },
-        { from: 'IPS', to: 'WAF' },
-
-        // Core devices to bottom LEAF connections (crossed)
-        { from: 'WAF', to: 'LEAF-01-BOTTOM' },
-        { from: 'WAF', to: 'LEAF-02-BOTTOM' },
-        { from: 'IPS', to: 'LEAF-01-BOTTOM' },
-        { from: 'IPS', to: 'LEAF-02-BOTTOM' },
-      ]
-
-      this.diagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray)
+      this.diagram.model = new go.GraphLinksModel(panData.nodes, panData.links)
 
       // Set manual positions to match the diagram layout
       this.diagram.addDiagramListener('InitialLayoutCompleted', () => {

@@ -9,6 +9,7 @@ import * as go from 'gojs'
 
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+import { getTopologyById } from '../api/topology'
 
 const physicalWanData = {
   nodes: [
@@ -79,25 +80,15 @@ const physicalWanData = {
 
 export default {
   name: 'PhysicalWanPartner',
-  props: {
-    nodes: {
-      type: Array,
-      required: true,
-      default: () => physicalWanData.nodes,
-    },
-    links: {
-      type: Array,
-      required: true,
-      default: () => physicalWanData.links,
-    },
-  },
   data() {
     return {
       diagram: null,
+      nodes: physicalWanData.nodes,
+      links: physicalWanData.links,
     }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) {
@@ -106,6 +97,21 @@ export default {
     }
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(5)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = physicalWanData.nodes
+        this.links = physicalWanData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       this.diagram = $(go.Diagram, 'physicalWanDiv', {

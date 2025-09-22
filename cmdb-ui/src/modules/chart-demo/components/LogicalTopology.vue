@@ -6,6 +6,8 @@
 
 <script>
 import * as go from 'gojs'
+import { getTopologyById } from '../api/topology'
+
 const defaultNodes = {
   // Core network/
   nodes: [
@@ -13,31 +15,31 @@ const defaultNodes = {
     { key: 'DMZ', isGroup: true, category: 'area', text: 'DMZ' },
     { key: 'CORE', isGroup: true, category: 'area', text: 'CORE' },
     // LEAF
-    { key: 'LEAF', category: 'net', text: 'LEAF', loc: '0 120', size: '1180 90' },
+    { key: 'LEAF', category: 'leaf', text: 'LEAF', loc: '0 120', size: '1180 90' },
     // INTERNET EDGE cluster (phải, phía trên LEAF)
-    { key: 'INTERNET', category: 'label', text: 'INTERNET', loc: '520 -60' },
-    { key: 'EDGE', category: 'label', text: 'INTERNET EDGE', loc: '520 -10' },
-    { key: 'LB', category: 'net', text: 'LB', loc: '470 40', size: '90 54' },
-    { key: 'VPN', category: 'net', text: 'VPN ROUTER', loc: '570 40', size: '120 54' },
+    { key: 'INTERNET', category: 'label', text: 'INTERNET', loc: '520 -250' },
+    { key: 'EDGE', category: 'label', text: 'INTERNET EDGE', loc: '520 -150' },
+    { key: 'LB', category: 'net', text: 'LB', loc: '470 -50', size: '90 100' },
+    { key: 'VPN', category: 'net', text: 'VPN ROUTER', loc: '570 -50', size: '120 54' },
 
     // DMZ area members (trái, trên LEAF)
-    { key: 'DMZ-SRV', category: 'default', text: 'DMZ SERVER', group: 'DMZ', loc: '-430 -100', size: '120 64' },
-    { key: 'WEB-SRV', category: 'default', text: 'WEB SERVER', group: 'DMZ', loc: '-300 -100', size: '120 64' },
+    { key: 'DMZ-SRV', category: 'default', text: 'DMZ SERVER', group: 'DMZ', loc: '-430 -250', size: '120 64' },
+    { key: 'WEB-SRV', category: 'default', text: 'WEB SERVER', group: 'DMZ', loc: '-300 -250', size: '120 64' },
 
     // DMZ firewall
     {
       key: 'FW-DMZ',
       category: 'security',
       text: 'FIREWALL DMZ PALO ALTO',
-      loc: '30 -100',
+      loc: '30 -250',
       size: '160 64',
     },
-    { key: 'WAF', category: 'security', text: 'WAF DMZ', loc: '0 0', size: '120 54' },
-    { key: 'IPS', category: 'security', text: 'IPS', loc: '0 -40', size: '120 54' },
+    { key: 'WAF', category: 'security', text: 'WAF DMZ', loc: '0 -50', size: '120 54' },
+    { key: 'IPS', category: 'security', text: 'IPS', loc: '0 -150', size: '120 54' },
 
     // CORE area members (giữa dưới LEAF)
-    { key: 'JUMP', category: 'default', text: 'JUMP SERVER', group: 'CORE', loc: '-260 220', size: '120 64' },
-    { key: 'CORE-SRV', category: 'default', text: 'CORE', group: 'CORE', loc: '-160 220', size: '120 64' },
+    { key: 'JUMP', category: 'default', text: 'JUMP SERVER', group: 'CORE', loc: '-300 300', size: '120 64' },
+    { key: 'CORE-SRV', category: 'default', text: 'CORE', group: 'CORE', loc: '-160 300', size: '120 64' },
 
     // WAN (phải, ngang LEAF)
     { key: 'WAN', category: 'net', text: 'WAN', loc: '760 120', size: '120 54' },
@@ -71,15 +73,15 @@ const defaultNodes = {
 
 export default {
   name: 'LogicalTopologyDiagram',
-  props: {
-    nodes: { type: Array, default: () => defaultNodes.nodes },
-    links: { type: Array, default: () => defaultNodes.links },
-  },
   data() {
-    return { diagram: null }
+    return {
+      diagram: null,
+      nodes: defaultNodes.nodes,
+      links: defaultNodes.links,
+    }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) this.diagram.div = null
@@ -99,6 +101,22 @@ export default {
     },
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(1)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = defaultNodes.nodes
+        this.links = defaultNodes.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
+
     initDiagram() {
       const $ = go.GraphObject.make
 
@@ -204,6 +222,32 @@ export default {
             new go.Binding('desiredSize', 'size', go.Size.parse)
           ),
           $(go.TextBlock, { margin: 6, font: 'bold 12pt Segoe UI', stroke: '#1b4332' }, new go.Binding('text', 'text'))
+        )
+      )
+      this.diagram.nodeTemplateMap.add(
+        'leaf',
+        $(
+          go.Node,
+          'Auto',
+          { locationSpot: go.Spot.Center, movable: true },
+          new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
+          new go.Binding('desiredSize', 'size', go.Size.parse), // read size from your model
+          $(go.Shape, 'RoundedRectangle', {
+            fill: '#bbf7d0', // light green
+            stroke: '#16a34a', // dark green border
+            strokeWidth: 2,
+            parameter1: 12, // round corners
+          }),
+          $(
+            go.TextBlock,
+            {
+              margin: new go.Margin(8, 10, 8, 10),
+              font: 'bold 14pt Segoe UI',
+              stroke: '#065f46',
+              textAlign: 'center',
+            },
+            new go.Binding('text', 'text')
+          )
         )
       )
 

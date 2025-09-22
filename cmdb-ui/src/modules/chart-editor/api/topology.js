@@ -28,7 +28,15 @@ export function getTopologyById(id, params) {
 
 export function getDeviceTypes(params) {
     return axios({
-    url: urlPrefix + `/device_types`,
+    url: urlPrefix + `/device-types`,
+    method: 'GET',
+    params: params,
+  })
+}
+
+export function getDevices(id, params) {
+    return axios({
+    url: urlPrefix + `/devices`,
     method: 'GET',
     params: params,
   })

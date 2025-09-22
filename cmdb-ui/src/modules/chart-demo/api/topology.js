@@ -18,11 +18,10 @@ export function postTopology(params) {
   })
 }
 
-export function getTopologyById(id, params) {
+export function getTopologyById(id) {
   return axios({
-    url: urlPrefix + `${id}`,
+    url: urlPrefix + `/${id}`,
     method: 'GET',
-    params: params,
   })
 }
 

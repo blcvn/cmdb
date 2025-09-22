@@ -9,6 +9,7 @@ import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+import { getTopologyById } from '../api/topology'
 
 const asrData = {
   nodes: [
@@ -56,25 +57,15 @@ const asrData = {
 
 export default {
   name: 'AsrCoreWan',
-  props: {
-    nodes: {
-      type: Array,
-      required: true,
-      default: () => asrData.nodes,
-    },
-    links: {
-      type: Array,
-      required: true,
-      default: () => asrData.links,
-    },
-  },
   data() {
     return {
       diagram: null,
+      nodes: asrData.nodes,
+      links: asrData.links,
     }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) {
@@ -82,6 +73,21 @@ export default {
     }
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(4)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = asrData.nodes
+        this.links = asrData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
 

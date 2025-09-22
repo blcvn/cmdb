@@ -8,6 +8,64 @@
 import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import routerIcon from '@/assets/icons/router-svgrepo-com.svg'
+import { getTopologyById } from '../api/topology'
+
+const routerData = {
+  // Node Data
+  nodes: [
+    { key: 'LEAF-01-TOP', label: 'LEAF-01', category: 'leaf' },
+    { key: 'LEAF-02-TOP', label: 'LEAF-02', category: 'leaf' },
+    { key: 'C9300-01', label: 'C9300-01', category: 'c9300' },
+    { key: 'C9300-02', label: 'C9300-02', category: 'c9300' },
+    { key: 'ROUTER-VPN1', label1: 'ROUTER', label2: 'VPN1', category: 'router' },
+    { key: 'ROUTER-VPN2', label1: 'ROUTER', label2: 'VPN2', category: 'router' },
+    { key: 'LEAF-01-BOTTOM', label: 'LEAF-01', category: 'leaf' },
+    { key: 'LEAF-02-BOTTOM', label: 'LEAF-02', category: 'leaf' },
+  ],
+  // Link Data - You can specify category: 'dual' for links that need dual labels
+  links: [
+    { from: 'LEAF-01-TOP', to: 'ROUTER-VPN1', label: 'E1/40' },
+    { from: 'LEAF-01-TOP', to: 'ROUTER-VPN2', label: 'E1/42' },
+    { from: 'LEAF-02-TOP', to: 'ROUTER-VPN1', label: 'E1/40' },
+    { from: 'LEAF-02-TOP', to: 'ROUTER-VPN2', label: 'E1/42' },
+    { from: 'C9300-01', to: 'ROUTER-VPN1', label: 'Gi1/0/36 MGMT' },
+    { from: 'ROUTER-VPN2', to: 'C9300-02', label: 'MGMT Gi2/0/36' },
+
+    // These could use dual template if you want to split the labels
+    {
+      from: 'ROUTER-VPN1',
+      to: 'LEAF-01-BOTTOM',
+      label: 'Gi0/0/2 OUTSIDE E1/41',
+      category: 'dual',
+      fromText: 'Gi0/0/2',
+      toText: 'E1/41',
+    },
+    {
+      from: 'ROUTER-VPN1',
+      to: 'LEAF-02-BOTTOM',
+      label: 'Gi0/0/3 E1/43',
+      category: 'dual',
+      fromText: 'Gi0/0/3',
+      toText: 'E1/43',
+    },
+    {
+      from: 'ROUTER-VPN2',
+      to: 'LEAF-01-BOTTOM',
+      label: 'Gi0/0/2 OUTSIDE E1/41',
+      category: 'dual',
+      fromText: 'Gi0/0/2',
+      toText: 'E1/41',
+    },
+    {
+      from: 'ROUTER-VPN2',
+      to: 'LEAF-02-BOTTOM',
+      label: 'Gi0/0/3 E1/43',
+      category: 'dual',
+      fromText: 'Gi0/0/3',
+      toText: 'E1/43',
+    },
+  ],
+}
 
 export default {
   name: 'RouterVpnDiagram',
@@ -17,7 +75,7 @@ export default {
     }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) {
@@ -25,6 +83,21 @@ export default {
     }
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(8)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = routerData.nodes
+        this.links = routerData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       this.diagram = $(go.Diagram, 'routerVpnDiv', {
@@ -254,63 +327,7 @@ export default {
         )
       )
 
-      // Node Data
-      const nodeDataArray = [
-        { key: 'LEAF-01-TOP', label: 'LEAF-01', category: 'leaf' },
-        { key: 'LEAF-02-TOP', label: 'LEAF-02', category: 'leaf' },
-        { key: 'C9300-01', label: 'C9300-01', category: 'c9300' },
-        { key: 'C9300-02', label: 'C9300-02', category: 'c9300' },
-        { key: 'ROUTER-VPN1', label1: 'ROUTER', label2: 'VPN1', category: 'router' },
-        { key: 'ROUTER-VPN2', label1: 'ROUTER', label2: 'VPN2', category: 'router' },
-        { key: 'LEAF-01-BOTTOM', label: 'LEAF-01', category: 'leaf' },
-        { key: 'LEAF-02-BOTTOM', label: 'LEAF-02', category: 'leaf' },
-      ]
-
-      // Link Data - You can specify category: 'dual' for links that need dual labels
-      const linkDataArray = [
-        { from: 'LEAF-01-TOP', to: 'ROUTER-VPN1', label: 'E1/40' },
-        { from: 'LEAF-01-TOP', to: 'ROUTER-VPN2', label: 'E1/42' },
-        { from: 'LEAF-02-TOP', to: 'ROUTER-VPN1', label: 'E1/40' },
-        { from: 'LEAF-02-TOP', to: 'ROUTER-VPN2', label: 'E1/42' },
-        { from: 'C9300-01', to: 'ROUTER-VPN1', label: 'Gi1/0/36 MGMT' },
-        { from: 'ROUTER-VPN2', to: 'C9300-02', label: 'MGMT Gi2/0/36' },
-
-        // These could use dual template if you want to split the labels
-        {
-          from: 'ROUTER-VPN1',
-          to: 'LEAF-01-BOTTOM',
-          label: 'Gi0/0/2 OUTSIDE E1/41',
-          category: 'dual',
-          fromText: 'Gi0/0/2',
-          toText: 'E1/41',
-        },
-        {
-          from: 'ROUTER-VPN1',
-          to: 'LEAF-02-BOTTOM',
-          label: 'Gi0/0/3 E1/43',
-          category: 'dual',
-          fromText: 'Gi0/0/3',
-          toText: 'E1/43',
-        },
-        {
-          from: 'ROUTER-VPN2',
-          to: 'LEAF-01-BOTTOM',
-          label: 'Gi0/0/2 OUTSIDE E1/41',
-          category: 'dual',
-          fromText: 'Gi0/0/2',
-          toText: 'E1/41',
-        },
-        {
-          from: 'ROUTER-VPN2',
-          to: 'LEAF-02-BOTTOM',
-          label: 'Gi0/0/3 E1/43',
-          category: 'dual',
-          fromText: 'Gi0/0/3',
-          toText: 'E1/43',
-        },
-      ]
-
-      this.diagram.model = new go.GraphLinksModel(nodeDataArray, linkDataArray)
+      this.diagram.model = new go.GraphLinksModel(routerData.nodes, routerData.links)
 
       // Manual layout
       this.diagram.addDiagramListener('InitialLayoutCompleted', () => {

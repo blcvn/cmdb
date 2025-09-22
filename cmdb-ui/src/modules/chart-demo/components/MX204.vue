@@ -6,6 +6,7 @@
 
 <script>
 import * as go from 'gojs'
+import { getTopologyById } from '../api/topology'
 
 const mx204Data = {
   nodes: [
@@ -171,26 +172,12 @@ const mx204Data = {
 
 export default {
   name: 'NetworkTopology',
-  props: {
-    nodes: {
-      type: Array,
-      default: () => mx204Data.nodes,
-    },
-    links: {
-      type: Array,
-      default: () => mx204Data.links,
-    },
-    height: {
-      type: String,
-      default: '700px',
-    },
-  },
   data() {
-    return { diagram: null }
+    return { diagram: null, nodes: mx204Data.nodes, links: mx204Data.links, height: '600px' }
   },
   mounted() {
       this.$nextTick(() => {
-    this.initDiagram()
+    this.fetchTopology()
   })
   },
   beforeDestroy() {
@@ -211,6 +198,21 @@ export default {
     },
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(3)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = mx204Data.nodes
+        this.links = mx204Data.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       const diagramDiv = this.$refs.mxDiagramDiv

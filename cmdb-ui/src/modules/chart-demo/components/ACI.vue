@@ -6,6 +6,8 @@
 
 <script>
 import * as go from 'gojs'
+import { getTopologyById } from '../api/topology'
+
 const aciData = {
   nodes: [
     // Groups
@@ -67,26 +69,18 @@ const aciData = {
 }
 
 export default {
-  name: 'NetworkTopology',
-  props: {
-    nodes: {
-      type: Array,
-      default: () => aciData.nodes,
-    },
-    links: {
-      type: Array,
-      default: () => aciData.links,
-    },
-    height: {
-      type: String,
-      default: '700px',
-    },
-  },
+  name: 'ACIDiagram',
   data() {
-    return { diagram: null }
+    return {
+      diagram: null,
+      nodes: aciData.nodes,
+      links: aciData.links,
+      loading: true,
+      height: '700px',
+    }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) this.diagram.div = null
@@ -106,6 +100,21 @@ export default {
     },
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(2)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = aciData.nodes
+        this.links = aciData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       const diagramDiv = this.$refs.diagramDiv

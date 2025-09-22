@@ -8,6 +8,7 @@
 import * as go from 'gojs'
 import switchIcon from '@/assets/icons/switch-svgrepo-com.svg'
 import nodeIcon from '@/assets/icons/node-svgrepo-com.svg'
+import { getTopologyById } from '../api/topology'
 
 const mhoData = {
   nodes: [
@@ -52,7 +53,7 @@ export default {
     }
   },
   mounted() {
-    this.initDiagram()
+    this.fetchTopology()
   },
   beforeDestroy() {
     if (this.diagram) {
@@ -60,6 +61,21 @@ export default {
     }
   },
   methods: {
+    async fetchTopology() {
+      try {
+        const res = await getTopologyById(6)
+        this.nodes = res.data.nodes || []
+        this.links = res.data.links || []
+      } catch (err) {
+        console.error('Failed to fetch topology:', err)
+        // fallback to default
+        this.nodes = mhoData.nodes
+        this.links = mhoData.links
+      }
+
+      // after fetching (success or fallback), init the diagram
+      this.initDiagram()
+    },
     initDiagram() {
       const $ = go.GraphObject.make
       this.diagram = $(go.Diagram, 'mhoDiagramDiv', {
