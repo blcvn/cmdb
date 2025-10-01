@@ -1,0 +1,66 @@
+name: PR Agent + Security Scan
+permissions:
+  contents: read           # bắt buộc để checkout
+  pull-requests: write
+  issues: write
+
+on:
+  pull_request:
+
+jobs:
+  pr-agent:
+    runs-on: self-hosted   # hoặc ubuntu-latest nếu ko dùng self-hosted runner
+    container:
+      image: anhdt8490/pr-ai-agent:latest
+      options: --entrypoint ""   # giống entrypoint: [""] trong GitLab
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run PR Agent
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USER_TOKEN: ${{ secrets.USER_TOKEN }}
+        run: |
+          echo "Running PR Agent action step"
+          export MR_URL="https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          echo "MR_URL=$MR_URL"
+          export config__git_provider="github"
+          export openai__key=$OPENAI_KEY
+          export github__user_token=$GITHUB_TOKEN
+          export GENAI_URL=$OPENAI_API_BASE
+          python -m pr_agent.cli --pr_url="$MR_URL" describe --openai.api_base=$GENAI_URL
+          python -m pr_agent.cli --pr_url="$MR_URL" review -i --openai.api_base=$GENAI_URL
+          python -m pr_agent.cli --pr_url="$MR_URL" improve --openai.api_base=$GENAI_URL
+      - name: Comment PR Agent review results
+        uses: peter-evans/create-or-update-comment@v4
+        if: always()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## PR Agent Review Results
+            The automated code review has completed. Please check the PR comments for detailed feedback.
+            This review was performed by GitHub Actions using AI-powered code review.
+
+
+  trivy-scan:
+    runs-on: self-hosted   # hoặc ubuntu-latest
+    container:
+      image: aquasec/trivy:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy FS scan
+        run: |
+          trivy fs --exit-code 0 --no-progress --severity HIGH,CRITICAL . > trivy-report.txt
+
+      - name: Comment kết quả Trivy scan lên PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: trivy-report.txt
