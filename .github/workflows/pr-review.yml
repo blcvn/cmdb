@@ -19,7 +19,7 @@ jobs:
         uses: qodo-ai/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           # Config self-hosted LLM
           OPENAI.API_BASE: https://genai.vnpay.vn/aigateway/llm/v1
           config.model: v_chat
