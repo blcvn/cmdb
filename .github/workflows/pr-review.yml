@@ -9,6 +9,7 @@ on:
 
 jobs:
   pr-agent:
+    name: PR Agent Review
     runs-on: self-hosted   # hoặc ubuntu-latest nếu ko dùng self-hosted runner
     container:
       image: anhdt8490/pr-ai-agent:latest
@@ -18,22 +19,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run PR Agent
+        uses: qodo-ai/pr-agent@v0.12.0
         env:
-          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_USER_TOKEN: ${{ secrets.USER_TOKEN }}
-        run: |
-          echo "Running PR Agent action step"
-          export MR_URL="https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-          echo "MR_URL=$MR_URL"
-          export config__git_provider="github"
-          export openai__key=$OPENAI_KEY
-          export github__user_token=$GITHUB_TOKEN
-          export GENAI_URL=$OPENAI_API_BASE
-          python -m pr_agent.cli --pr_url="$MR_URL" describe --openai.api_base=$GENAI_URL
-          python -m pr_agent.cli --pr_url="$MR_URL" review -i --openai.api_base=$GENAI_URL
-          python -m pr_agent.cli --pr_url="$MR_URL" improve --openai.api_base=$GENAI_URL
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Config self-hosted LLM
+          OPENAI.API_BASE: https://genai.vnpay.vn/aigateway/llm/v1
+          config.model: v_chat
 
   trivy-scan:
     name: Trivy Security Scan
