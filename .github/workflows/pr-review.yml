@@ -34,33 +34,24 @@ jobs:
           python -m pr_agent.cli --pr_url="$MR_URL" describe --openai.api_base=$GENAI_URL
           python -m pr_agent.cli --pr_url="$MR_URL" review -i --openai.api_base=$GENAI_URL
           python -m pr_agent.cli --pr_url="$MR_URL" improve --openai.api_base=$GENAI_URL
-      - name: Comment PR Agent review results
-        uses: peter-evans/create-or-update-comment@v4
-        if: always()
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ## PR Agent Review Results
-            The automated code review has completed. Please check the PR comments for detailed feedback.
-            This review was performed by GitHub Actions using AI-powered code review.
-
 
   trivy-scan:
-    runs-on: self-hosted   # hoặc ubuntu-latest
-    container:
-      image: aquasec/trivy:latest
+    name: Trivy Security Scan
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Trivy FS scan
-        run: |
-          trivy fs --exit-code 0 --no-progress --severity HIGH,CRITICAL . > trivy-report.txt
-
-      - name: Comment kết quả Trivy scan lên PR
-        uses: peter-evans/create-or-update-comment@v4
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: trivy-report.txt
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
