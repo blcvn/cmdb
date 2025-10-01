@@ -11,15 +11,12 @@ jobs:
   pr-agent:
     name: PR Agent Review
     runs-on: self-hosted   # hoặc ubuntu-latest nếu ko dùng self-hosted runner
-    container:
-      image: anhdt8490/pr-ai-agent:latest
-      options: --entrypoint ""   # giống entrypoint: [""] trong GitLab
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Run PR Agent
-        uses: qodo-ai/pr-agent@v0.12.0
+        uses: qodo-ai/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
