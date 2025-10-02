@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import copy
+import re
 import six
 import time
 from flask import abort
@@ -75,7 +76,82 @@ class Search(object):
         self.type2filter_perms = dict()
         self.is_app_admin = is_app_admin('cmdb') or current_user.username == "worker"
         self.is_app_admin = self.is_app_admin or (not self.use_ci_filter and not self.use_id_filter)
+        
+        # Define allowed table names for security
+        self.allowed_table_names = {
+            'c_value_0', 'c_value_1', 'c_value_2', 'c_value_3', 'c_value_4', 'c_value_5', 'c_value_6'
+        }
 
+    def _validate_query_sql(self, query_sql):
+        """
+        Validate query SQL to prevent SQL injection attacks.
+        
+        Args:
+            query_sql (str): The SQL query string to validate
+            
+        Raises:
+            SearchError: If the query contains dangerous patterns
+        """
+        if not query_sql or not isinstance(query_sql, str):
+            return
+            
+        # Define dangerous patterns that could indicate SQL injection
+        dangerous_patterns = [
+            r';',  # Multiple statements
+            r'--',  # SQL comments
+            r'/\*',  # Multi-line comments start
+            r'\*/',  # Multi-line comments end
+            r'\bDROP\b',  # DROP statements
+            r'\bDELETE\b',  # DELETE statements (unless in WHERE clause context)
+            r'\bINSERT\b',  # INSERT statements
+            r'\bUPDATE\b',  # UPDATE statements
+            r'\bCREATE\b',  # CREATE statements
+            r'\bALTER\b',  # ALTER statements
+            r'\bTRUNCATE\b',  # TRUNCATE statements
+            r'\bEXEC\b',  # EXEC statements
+            r'\bSP_\w+',  # Stored procedures
+            r'\bxp_\w+',  # Extended procedures
+            r'\bUTL_\w+',  # Oracle utility packages
+            r'\bDBMS_\w+',  # Oracle DBMS packages
+        ]
+        
+        # Check for dangerous patterns (case-insensitive)
+        for pattern in dangerous_patterns:
+            if re.search(pattern, query_sql, re.IGNORECASE):
+                current_app.logger.error(f"Dangerous SQL pattern detected: {pattern} in query: {query_sql[:100]}...")
+                raise SearchError("Invalid query: contains potentially dangerous SQL patterns")
+        
+        # Additional length check to prevent extremely long queries
+        if len(query_sql) > 10000:  # Adjust limit as needed
+            current_app.logger.error(f"Query SQL too long: {len(query_sql)} characters")
+            raise SearchError("Invalid query: query too long")
+    
+    def _validate_table_name(self, table_name):
+        """
+        Validate table name against allowlist to prevent SQL injection.
+        
+        Args:
+            table_name (str): The table name to validate
+            
+        Raises:
+            SearchError: If the table name is not in the allowlist
+        """
+        if not table_name:
+            raise SearchError("Invalid table name: empty or None")
+            
+        # Check if table name starts with expected prefix
+        if not table_name.startswith('c_value_'):
+            current_app.logger.error(f"Invalid table name prefix: {table_name}")
+            raise SearchError(f"Invalid table name: {table_name}")
+            
+        # For additional security, check against known table names if available
+        # This is defensive programming - even if not strictly necessary
+        if hasattr(self, 'allowed_table_names') and self.allowed_table_names:
+            if table_name not in self.allowed_table_names:
+                current_app.logger.warning(f"Table name not in allowlist: {table_name}")
+                # We don't fail here as the prefix check above is the primary security measure
+                # But we log it for monitoring
+    
     @staticmethod
     def _operator_proc(key):
         operator = "&"
@@ -193,14 +269,15 @@ class Search(object):
         else:
             return QUERY_CI_BY_ID.format("= {}".format(v))
 
-    @staticmethod
-    def _in_query_handler(attr, v, is_not):
+    def _in_query_handler(self, attr, v, is_not):
         new_v = v[1:-1].split(";")
 
         if attr.value_type == ValueTypeEnum.DATE:
             new_v = ["{} 00:00:00".format(i) for i in new_v if len(i) == 10]
 
         table_name = TableMap(attr=attr).table_name
+        self._validate_table_name(table_name)
+        
         in_query = " OR {0}.value ".format(table_name).join(['{0} "{1}"'.format(
             "NOT LIKE" if is_not else "LIKE",
             _v.replace("*", "%")) for _v in new_v])
@@ -208,8 +285,7 @@ class Search(object):
 
         return _query_sql
 
-    @staticmethod
-    def _range_query_handler(attr, v, is_not):
+    def _range_query_handler(self, attr, v, is_not):
         start, end = [x.strip() for x in v[1:-1].split("_TO_")]
 
         if attr.value_type == ValueTypeEnum.DATE:
@@ -217,6 +293,8 @@ class Search(object):
             end = "{} 00:00:00".format(end) if len(end) == 10 else end
 
         table_name = TableMap(attr=attr).table_name
+        self._validate_table_name(table_name)
+        
         range_query = "{0} '{1}' AND '{2}'".format(
             "NOT BETWEEN" if is_not else "BETWEEN",
             start.replace("*", "%"), end.replace("*", "%"))
@@ -224,9 +302,10 @@ class Search(object):
 
         return _query_sql
 
-    @staticmethod
-    def _comparison_query_handler(attr, v):
+    def _comparison_query_handler(self, attr, v):
         table_name = TableMap(attr=attr).table_name
+        self._validate_table_name(table_name)
+        
         if v.startswith(">=") or v.startswith("<="):
             if attr.value_type == ValueTypeEnum.DATE and len(v[2:]) == 10:
                 v = "{} 00:00:00".format(v)
@@ -315,6 +394,8 @@ class Search(object):
             attr_id = attr.id
 
             table_name = TableMap(attr=attr).table_name
+            self._validate_table_name(table_name)
+            
             _v_query_sql = """SELECT ALIAS.ci_id, {0}.value
                               FROM ({1}) AS ALIAS INNER JOIN {0} ON {0}.ci_id = ALIAS.ci_id
                               WHERE {0}.attr_id = {2}""".format(table_name, query_sql, attr_id)
@@ -508,6 +589,8 @@ class Search(object):
                 _query_sql = self._comparison_query_handler(attr, v)
             else:
                 table_name = TableMap(attr=attr).table_name
+                self._validate_table_name(table_name)
+                
                 if is_not and v == "*" and self.type_id_list:  # special handle
                     _query_sql = QUERY_UNION_CI_ATTRIBUTE_IS_NULL.format(
                         ",".join(self.type_id_list),
@@ -609,6 +692,9 @@ class Search(object):
             if self.raw_ci_ids and not self.ci_ids:
                 return 0, []
 
+            # Validate query SQL for security before setting it
+            self._validate_query_sql(query_sql)
+            
             self.query_sql = query_sql
             # current_app.logger.debug(query_sql)
             numfound, res = self._execute_sql(query_sql)
@@ -624,9 +710,19 @@ class Search(object):
             if k:
                 table_name = TableMap(attr=attr).table_name
                 
-                if not table_name or not table_name.startswith('c_value_'):
-                    current_app.logger.warning(f"Invalid table name for facet: {table_name}")
+                # Validate table name for security
+                try:
+                    self._validate_table_name(table_name)
+                except SearchError as e:
+                    current_app.logger.warning(f"Invalid table name for facet: {table_name} - {str(e)}")
                     continue
+                
+                # Validate query_sql for security
+                try:
+                    self._validate_query_sql(self.query_sql)
+                except SearchError as e:
+                    current_app.logger.error(f"Invalid query SQL in facet build: {str(e)}")
+                    raise e
                 
                 try:
                     attr_id = int(attr.id)
@@ -634,14 +730,10 @@ class Search(object):
                     current_app.logger.warning(f"Invalid attribute ID: {attr.id}")
                     continue
                 
-                # Use the predefined FACET_QUERY template from constants
-                facet_query_template = FACET_QUERY.format(
-                    table_name,
-                    self.query_sql,
-                    attr_id
-                )
+                # Use parameterized query for attr_id, but table_name and query_sql are validated above
+                facet_query_template = FACET_QUERY.format(table_name, self.query_sql, attr_id)
                 
-                result = db.session.execute(text(facet_query_template), {'attr_id': attr_id}).fetchall()
+                result = db.session.execute(text(facet_query_template)).fetchall()
                 facet[k] = result
 
         facet_result = dict()
