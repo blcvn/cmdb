@@ -731,9 +731,11 @@ class Search(object):
                     continue
                 
                 # Use parameterized query for attr_id, but table_name and query_sql are validated above
-                facet_query_template = FACET_QUERY.format(table_name, self.query_sql, attr_id)
-                
-                result = db.session.execute(text(facet_query_template)).fetchall()
+                facet_query = FACET_QUERY.format(table_name)
+                result = db.session.execute(
+                    text(facet_query), 
+                    {"query_sql": self.query_sql, "attr_id": attr_id}
+                ).fetchall()
                 facet[k] = result
 
         facet_result = dict()

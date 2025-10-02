@@ -17,12 +17,12 @@ env:
 jobs:
   setup-environment:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
   release-api-images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [setup-environment]
     permissions:
       contents: read
