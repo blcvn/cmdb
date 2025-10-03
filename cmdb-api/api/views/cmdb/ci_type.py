@@ -186,6 +186,11 @@ class CITypeQueryView(APIView):
     @args_required("q")
     def get(self):
         q = request.args.get("q")
+        # Sanitize input to prevent SQL injection
+        if q:
+            # Remove dangerous characters and limit length
+            import re
+            q = re.sub(r'[^\w\s\-_.]', '', q)[:100]
         res = CITypeManager.query(q)
 
         return self.jsonify(ci_type=res)
