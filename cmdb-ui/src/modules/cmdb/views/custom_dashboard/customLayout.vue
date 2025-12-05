@@ -214,8 +214,8 @@ export default {
     deleteChart(item) {
       const that = this
       this.$confirm({
-        title: '警告',
-        content: '确认删除？',
+        title: 'Warning',
+        content: 'Are you sure to delete?',
         onOk() {
           deleteCustomDashboard(item.id).then(() => {
             that.getLayout()

@@ -103,7 +103,7 @@ export default {
     },
     removeNode(removeId, minLength) {
       if (this.nodes.length <= minLength) {
-        this.$message.error('不可再删除！')
+        this.$message.error('Cannot delete more!')
         return
       }
       const _idx = this.nodes.findIndex((item) => item.id === removeId)

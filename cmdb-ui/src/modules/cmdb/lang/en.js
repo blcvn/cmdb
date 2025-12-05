@@ -289,6 +289,8 @@ const cmdb_en = {
         relationADSelectModelAttr: 'Please select the associated model attribute',
         relationADTip2: 'When an auto-discovered attribute matches an associated model attribute, the two instance models are automatically associated',
         relationADTip3: 'If the value of the auto-discovered attribute is a list, multiple relationships are established with the association model',
+        relationADReverse: 'Reverse Direction',
+        relationADReverseTip: 'If checked, the relationship direction will be reversed: peer_ci -> ad_ci (instead of ad_ci -> peer_ci)',
         deleteRelationAdTip: 'Cannot be deleted again',
         cronTips: 'The format is the same as crontab, for example: 0 15 * * 1-5',
         privateCloud: 'vSphere API Configuration',

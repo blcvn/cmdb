@@ -596,6 +596,10 @@ class AutoDiscoveryCITypeRelation(Model):
     ad_key = db.Column(db.String(128))
     peer_type_id = db.Column(db.Integer, db.ForeignKey('c_ci_types.id'), nullable=False)
     peer_attr_id = db.Column(db.Integer, db.ForeignKey('c_attributes.id'), nullable=False)
+    # is_reverse: if True, create relation as (peer_ci_id, ad_ci_id) instead of (ad_ci_id, peer_ci_id)
+    # False (default): ad_ci_id -> peer_ci_id (ad_ci is first_ci_id, peer_ci is second_ci_id)
+    # True: peer_ci_id -> ad_ci_id (peer_ci is first_ci_id, ad_ci is second_ci_id)
+    is_reverse = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class AutoDiscoveryCI(Model):

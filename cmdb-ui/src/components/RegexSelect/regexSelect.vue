@@ -56,7 +56,7 @@
           <div class="regex-select-right-header">{{ $t('regexSelect.test') }}</div>
           <a-input v-model="testInput" :style="{ margin: '12px 0 4px' }" size="small" @change="validate" />
           <span :style="{ color: 'red', fontSize: '12px' }" v-if="showMessage">{{
-            locale === 'zh' ? current.message || '错误' : $t('regexSelect.error')
+            locale === 'zh' ? current.message || $t('regexSelect.error') : $t('regexSelect.error')
           }}</span>
         </template>
       </div>

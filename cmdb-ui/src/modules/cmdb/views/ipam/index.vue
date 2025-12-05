@@ -174,7 +174,9 @@ export default {
 
       const allCount = treeData.reduce((acc, cur) => acc + cur.count, 0)
       const rootShowSubnetBtn = treeData.every((item) => item.ci_type === SUB_NET_CITYPE_NAME)
-      const rootShowCatalogBtn = treeData.every((item) => item.ci_type === SCOPE_CITYPE_NAME)
+      // Always allow adding scope at root level if there are no items or if there are scopes
+      // Scope can coexist with subnets, so we should allow adding scope even if there are subnets
+      const rootShowCatalogBtn = treeData.length === 0 || treeData.some((item) => item.ci_type === SCOPE_CITYPE_NAME) || treeData.every((item) => item.ci_type === SCOPE_CITYPE_NAME)
 
       treeData.unshift({
         key: 'all',
@@ -218,12 +220,15 @@ export default {
       })
 
       const showSubnetBtn = children.every((item) => item.ci_type === SUB_NET_CITYPE_NAME)
+      // Allow adding scope if node is not a subnet
+      // Scope can coexist with subnets, so we should allow adding scope even if there are subnets in children
+      const showCatalogBtn = !isSubnet
       return {
         key,
         title,
         icon,
         iconColor,
-        showCatalogBtn: !isSubnet && !showSubnetBtn,
+        showCatalogBtn: showCatalogBtn,
         showSubnetBtn: showSubnetBtn,
         isSubnet,
         parentId,

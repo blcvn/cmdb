@@ -54,15 +54,15 @@
             v-model="filterName"
             class="ops-input-radius"
             :style="{ width: '300px', marginRight: '20px' }"
-            placeholder="请输入你需要搜索的内容"
+            :placeholder="$t('placeholderSearch')"
             @search="updateTableData()"
           />
           <div class="ops-list-batch-action">
             <template v-if="!!selectedRowKeys.length">
-              <span @click="batchChangeIsRead('read')">标为已读</span>
+              <span @click="batchChangeIsRead('read')">{{ $t('markAsRead') }}</span>
               <a-divider type="vertical" />
-              <span @click="batchChangeIsRead('unread')">标为未读</span>
-              <span>选取: {{ selectedRowKeys.length }} 项</span>
+              <span @click="batchChangeIsRead('unread')">{{ $t('markAsUnread') }}</span>
+              <span>{{ $t('selected') }}: {{ selectedRowKeys.length }} {{ $t('items') }}</span>
             </template>
           </div>
         </div>

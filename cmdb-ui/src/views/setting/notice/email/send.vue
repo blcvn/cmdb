@@ -105,7 +105,7 @@ export default {
       windowHeight: (state) => state.windowHeight,
     }),
     isEditable() {
-      return this.hasDetailPermission('backend', '通知设置', ['update'])
+      return this.hasDetailPermission('backend', 'Notice Settings', ['update'])
     },
   },
   watch: {

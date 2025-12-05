@@ -88,7 +88,7 @@ export default {
   },
   computed: {
     isEditable() {
-      return this.hasDetailPermission('backend', '公司信息', ['update'])
+      return this.hasDetailPermission('backend', 'Company Info', ['update'])
     },
     rule() {
       return {

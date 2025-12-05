@@ -377,7 +377,7 @@ export default {
       return this.windowHeight - 180
     },
     isEditable() {
-      return this.hasDetailPermission('backend', '公司架构', ['update'])
+      return this.hasDetailPermission('backend', 'Company Structure', ['update'])
     },
     canSearchPreferenceAttrList() {
       return [

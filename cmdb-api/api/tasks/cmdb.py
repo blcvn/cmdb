@@ -333,20 +333,33 @@ def build_relations_for_ad_accept(adc, ci_id, ad_key2attr):
 
             for relation_ci in response:
                 relation_ci_id = relation_ci['_id']
+                # Skip self-relation (first_ci_id == second_ci_id)
+                if ci_id == relation_ci_id:
+                    continue
+                
+                # Check is_reverse flag to determine direction
+                if r_adt.is_reverse:
+                    # Reverse: peer_ci (relation_ci_id) -> ad_ci (ci_id)
+                    first_ci_id, second_ci_id = relation_ci_id, ci_id
+                else:
+                    # Normal: ad_ci (ci_id) -> peer_ci (relation_ci_id)
+                    first_ci_id, second_ci_id = ci_id, relation_ci_id
+                
                 try:
-                    CIRelationManager.add(ci_id, relation_ci_id,
+                    CIRelationManager.add(first_ci_id, second_ci_id,
                                           valid=False,
                                           source=RelationSourceEnum.AUTO_DISCOVERY)
-
                 except:
+                    # Fallback: try reverse direction if specified direction fails
                     try:
-                        CIRelationManager.add(relation_ci_id, ci_id,
+                        CIRelationManager.add(second_ci_id, first_ci_id,
                                               valid=False,
                                               source=RelationSourceEnum.AUTO_DISCOVERY)
                     except:
                         pass
 
     # build relations in reverse
+    # This handles the case where the peer CI (child) was accepted before this CI (parent)
     relation_ads = AutoDiscoveryCITypeRelation.get_by(peer_type_id=adc['type_id'], to_dict=False)
     attr2ad_key = {v: k for k, v in ad_key2attr.items()}
     for r_adt in relation_ads:
@@ -357,23 +370,88 @@ def build_relations_for_ad_accept(adc, ci_id, ad_key2attr):
 
         ad_value = adc['instance'].get(ad_key)
         peer_ad_key = r_adt.ad_key
+        
+        # First, try to find in AutoDiscoveryCI (not yet accepted)
         peer_instances = AutoDiscoveryCI.get_by(type_id=r_adt.ad_type_id, to_dict=False)
         for peer_instance in peer_instances:
             peer_ad_values = peer_instance.instance.get(peer_ad_key)
             peer_ad_values = [peer_ad_values] if not isinstance(peer_ad_values, list) else peer_ad_values
             if ad_value in peer_ad_values and peer_instance.ci_id:
+                # Skip self-relation (first_ci_id == second_ci_id)
+                if ci_id == peer_instance.ci_id:
+                    continue
+                
+                # In reverse direction, the logic is inverted:
+                # - If is_reverse=False: peer_ci (ad_type_id) -> current_ci (peer_type_id)
+                #   But we're in reverse, so current_ci is peer_type_id, peer_ci is ad_type_id
+                #   So: peer_ci (peer_instance.ci_id) -> current_ci (ci_id)
+                # - If is_reverse=True: current_ci (peer_type_id) -> peer_ci (ad_type_id)
+                #   So: current_ci (ci_id) -> peer_ci (peer_instance.ci_id)
+                if r_adt.is_reverse:
+                    # Reverse: current_ci -> peer_ci
+                    first_ci_id, second_ci_id = ci_id, peer_instance.ci_id
+                else:
+                    # Normal: peer_ci -> current_ci
+                    first_ci_id, second_ci_id = peer_instance.ci_id, ci_id
+                
                 try:
-                    CIRelationManager.add(peer_instance.ci_id, ci_id,
+                    CIRelationManager.add(first_ci_id, second_ci_id,
                                           valid=False,
                                           source=RelationSourceEnum.AUTO_DISCOVERY)
-
                 except:
+                    # Fallback: try reverse direction if specified direction fails
                     try:
-                        CIRelationManager.add(ci_id, peer_instance.ci_id,
+                        CIRelationManager.add(second_ci_id, first_ci_id,
                                               valid=False,
                                               source=RelationSourceEnum.AUTO_DISCOVERY)
                     except:
                         pass
+        
+        # Also search in already accepted CIs (in case peer was accepted earlier)
+        # This handles the case where scope nhỏ was accepted before scope lớn
+        # Example: scope lớn has name="Datacenter A", we need to find scope nhỏ with parent_scope_name="Datacenter A"
+        if ad_value:
+            try:
+                # Search for CIs that have peer_ad_key (e.g., parent_scope_name) matching ad_value (e.g., scope lớn's name)
+                # peer_attr_id is the attribute ID of the peer CI's attribute to match
+                query = "_type:{},{}:{}".format(r_adt.ad_type_id, r_adt.peer_attr_id, ad_value)
+                s = ci_search(query, use_ci_filter=False, count=1000000)
+                response, _, _, _, _, _ = s.search()
+                
+                for relation_ci in response:
+                    relation_ci_id = relation_ci['_id']
+                    # Skip self-relation (first_ci_id == second_ci_id)
+                    if ci_id == relation_ci_id:
+                        continue
+                    
+                    # In reverse direction (accepted CIs), check is_reverse flag
+                    # - If is_reverse=False: current_ci (peer_type_id) -> found_ci (ad_type_id)
+                    #   So: current_ci (ci_id) -> found_ci (relation_ci_id)
+                    # - If is_reverse=True: found_ci (ad_type_id) -> current_ci (peer_type_id)
+                    #   So: found_ci (relation_ci_id) -> current_ci (ci_id)
+                    if r_adt.is_reverse:
+                        # Reverse: found_ci -> current_ci
+                        first_ci_id, second_ci_id = relation_ci_id, ci_id
+                    else:
+                        # Normal: current_ci -> found_ci
+                        first_ci_id, second_ci_id = ci_id, relation_ci_id
+                    
+                    try:
+                        CIRelationManager.add(first_ci_id, second_ci_id,
+                                              valid=False,
+                                              source=RelationSourceEnum.AUTO_DISCOVERY)
+                    except:
+                        # Fallback: try reverse direction if specified direction fails
+                        try:
+                            CIRelationManager.add(second_ci_id, first_ci_id,
+                                                  valid=False,
+                                                  source=RelationSourceEnum.AUTO_DISCOVERY)
+                        except:
+                            pass
+            except SearchError as e:
+                current_app.logger.error("build_relations_for_ad_accept (reverse, accepted CIs) failed: {}".format(e))
+                # Continue with next relation_ads instead of returning
+                continue
 
 
 @celery.task(name="cmdb.add_net_device_ports", queue=CMDB_QUEUE)

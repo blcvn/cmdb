@@ -8,7 +8,7 @@ export function timeFix() {
 }
 
 export function welcome() {
-  const arr = ['休息一会儿吧', '准备吃什么呢?', '要不要打一把 DOTA?', '我猜你可能累了', '你有一个小目标吗?']
+  const arr = ['Take a break', 'What do you want to eat?', 'Want to play a game of DOTA?', 'I guess you might be tired', 'Do you have a small goal?']
   const index = Math.floor(Math.random() * arr.length)
   return arr[index]
 }

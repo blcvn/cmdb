@@ -97,7 +97,18 @@ const cmdb_vi = {
         password: 'Mật khẩu',
         link: 'Liên kết',
         list: 'Danh sách',
-        listTips: 'Giá trị của trường là một hoặc nhiều, và loại giá trị trả về bởi giao diện là danh sách.'
+        listTips: 'Giá trị của trường là một hoặc nhiều, và loại giá trị trả về bởi giao diện là danh sách.',
+        relationADTip: 'Tự động phát hiện quan hệ giả định rằng có cấu hình tự động phát hiện thuộc tính',
+        relationADHeader1: 'Thuộc tính AutoDiscovery',
+        relationADHeader2: 'Thuộc tính mô hình liên kết',
+        relationADSelectAttr: 'Vui lòng chọn thuộc tính tự động phát hiện',
+        relationADSelectCIType: 'Vui lòng chọn mô hình liên kết với mô hình này',
+        relationADSelectModelAttr: 'Vui lòng chọn thuộc tính mô hình liên kết',
+        relationADTip2: 'Khi thuộc tính tự động phát hiện khớp với thuộc tính mô hình liên kết, hai mô hình instance sẽ tự động liên kết',
+        relationADTip3: 'Nếu giá trị của thuộc tính tự động phát hiện là danh sách, nhiều quan hệ sẽ được thiết lập với mô hình liên kết',
+        relationADReverse: 'Hướng ngược',
+        relationADReverseTip: 'Nếu được chọn, hướng quan hệ sẽ bị đảo ngược: peer_ci -> ad_ci (thay vì ad_ci -> peer_ci)',
+        deleteRelationAdTip: 'Không thể xóa lại'
     }
 }
 

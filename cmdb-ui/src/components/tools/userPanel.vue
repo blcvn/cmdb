@@ -125,7 +125,7 @@ export default {
       ],
       languageList: [
         {
-          title: '简中',
+          title: 'CN',
           key: 'zh'
         },
         {

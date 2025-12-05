@@ -104,6 +104,13 @@
             {{ node.label }}
           </div>
         </treeselect>
+        <a-checkbox
+          v-model="item.is_reverse"
+          :style="{ marginRight: '10px' }"
+          :title="$t('cmdb.ciType.relationADReverseTip')"
+        >
+          {{ $t('cmdb.ciType.relationADReverse') }}
+        </a-checkbox>
         <div class="relation-ad-item-action">
           <a @click="copyRelation(item)">
             <a-icon type="copy" />
@@ -218,6 +225,7 @@ export default {
               ad_key: item.ad_key,
               peer_type_id: item.peer_type_id,
               peer_attr_id: item.peer_attr_id,
+              is_reverse: item.is_reverse || false,
               attributes,
             })
           })
@@ -229,6 +237,7 @@ export default {
                   ad_key: undefined,
                   peer_type_id: undefined,
                   peer_attr_id: undefined,
+                  is_reverse: false,
                   attributes: [],
                 },
               ]
@@ -240,6 +249,7 @@ export default {
               ad_key: undefined,
               peer_type_id: undefined,
               peer_attr_id: undefined,
+              is_reverse: false,
               attributes: [],
             },
           ]
@@ -262,6 +272,7 @@ export default {
         ad_key: undefined,
         peer_type_id: undefined,
         peer_attr_id: undefined,
+        is_reverse: false,
         attributes: [],
       })
       this.relationList = _relationList
@@ -287,11 +298,12 @@ export default {
     },
 
     async handleSave() {
-      const _relation = this.relationList.map(({ ad_key, peer_attr_id, peer_type_id }) => {
+      const _relation = this.relationList.map(({ ad_key, peer_attr_id, peer_type_id, is_reverse }) => {
         return {
           ad_key,
           peer_attr_id,
-          peer_type_id
+          peer_type_id,
+          is_reverse: is_reverse || false
         }
       })
       if (_relation.length) {

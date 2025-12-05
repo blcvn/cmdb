@@ -63,12 +63,14 @@ def callback(auth_type):
     if 'code' not in request.values:
         return abort(401, 'code is invalid')
 
+    current_app.logger.info("===============================")
+    current_app.logger.info(url_for('oauth2.callback', auth_type=auth_type.lower(), _external=True, _scheme=current_app.config.get("SCHEME")))
     response = requests.post(config['token_url'], data={
         'client_id': config['client_id'],
         'client_secret': config['client_secret'],
         'code': request.values['code'],
         'grant_type': current_app.config[f'{auth_type}_GRANT_TYPE'],
-        'redirect_uri': url_for('oauth2.callback', auth_type=auth_type.lower(), _external=True),
+        'redirect_uri': url_for('oauth2.callback', auth_type=auth_type.lower(), _external=True, _scheme=current_app.config.get("SCHEME")),
     }, headers={'Accept': 'application/json'})
     if response.status_code != 200:
         current_app.logger.error(response.text)

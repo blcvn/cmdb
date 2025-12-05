@@ -2,19 +2,19 @@
   <el-form size="small">
     <el-form-item>
       <el-radio v-model="radioValue" :label="1">
-        周，允许的通配符[, - * / L #]
+        Week, allowed wildcards [, - * / L #]
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="2">
-        不指定
+        Not specified
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="3">
-        周期从星期
+        Cycle from weekday
         <el-input-number v-model="cycle01" :min="1" :max="7" /> -
         <el-input-number v-model="cycle02" :min="1" :max="7" />
       </el-radio>
@@ -22,23 +22,23 @@
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="4">
-        第
-        <el-input-number v-model="average01" :min="1" :max="4" /> 周的星期
+        Week number
+        <el-input-number v-model="average01" :min="1" :max="4" /> week of the month
         <el-input-number v-model="average02" :min="1" :max="7" />
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="5">
-        本月最后一个星期
+        Last week of month
         <el-input-number v-model="weekday" :min="1" :max="7" />
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="6">
-        指定
-        <el-select clearable v-model="checkboxList" placeholder="可多选" multiple style="width:100%">
+        Specify
+        <el-select clearable v-model="checkboxList" placeholder="Multiple" multiple style="width:100%">
           <el-option v-for="(item, index) of weekList" :key="index" :value="index + 1">{{ item }}</el-option>
         </el-select>
       </el-radio>
@@ -58,7 +58,7 @@ export default {
       average01: 1,
       average02: 1,
       checkboxList: [],
-      weekList: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+      weekList: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
       checkNum: this.$options.propsData.check,
     }
   },

@@ -48,7 +48,7 @@ export default {
     return {
       languageList: [
         {
-          title: '简中',
+          title: 'CN',
           key: 'zh'
         },
         {

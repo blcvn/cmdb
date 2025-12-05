@@ -45,16 +45,17 @@ class AutoDiscoveryRuleView(APIView):
     def get(self):
         _, res = AutoDiscoveryRuleCRUD.search(page=1, page_size=100000, **request.values)
 
-        rebuild = False
-        exists = {i['name'] for i in res}
-        for i in copy.deepcopy(DEFAULT_INNER):
-            if i['name'] not in exists:
-                i.pop('en', None)
-                AutoDiscoveryRuleCRUD().add(**i)
-                rebuild = True
-
-        if rebuild:
-            _, res = AutoDiscoveryRuleCRUD.search(page=1, page_size=100000, **request.values)
+        # Disabled auto-creation of default discovery rules
+        # rebuild = False
+        # exists = {i['name'] for i in res}
+        # for i in copy.deepcopy(DEFAULT_INNER):
+        #     if i['name'] not in exists:
+        #         i.pop('en', None)
+        #         AutoDiscoveryRuleCRUD().add(**i)
+        #         rebuild = True
+        # 
+        # if rebuild:
+        #     _, res = AutoDiscoveryRuleCRUD.search(page=1, page_size=100000, **request.values)
 
         for i in res:
             if i['type'] == 'http':
@@ -65,10 +66,14 @@ class AutoDiscoveryRuleView(APIView):
     @args_required("name", value_required=True)
     @args_validate(AutoDiscoveryRuleCRUD.cls)
     def post(self):
+        request.values.pop("_key", None)
+        request.values.pop("_secret", None)
         return self.jsonify(AutoDiscoveryRuleCRUD().add(**request.values).to_dict())
 
     @args_validate(AutoDiscoveryRuleCRUD.cls)
     def put(self, adr_id):
+        request.values.pop("_key", None)
+        request.values.pop("_secret", None)
         return self.jsonify(AutoDiscoveryRuleCRUD().update(adr_id, **request.values).to_dict())
 
     def delete(self, adr_id):
@@ -163,6 +168,8 @@ class AutoDiscoveryCITypeView(APIView):
 
     @args_validate(AutoDiscoveryCITypeCRUD.cls)
     def post(self, type_id):
+        request.values.pop("_key", None)
+        request.values.pop("_secret", None)
         if not request.values.get('interval'):
             request.values.pop('interval', None)
 
@@ -170,6 +177,8 @@ class AutoDiscoveryCITypeView(APIView):
 
     @args_validate(AutoDiscoveryCITypeCRUD.cls)
     def put(self, adt_id):
+        request.values.pop("_key", None)
+        request.values.pop("_secret", None)
         if not request.values.get('interval'):
             request.values.pop('interval', None)
 

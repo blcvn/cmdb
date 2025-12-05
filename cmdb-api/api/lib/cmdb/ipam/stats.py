@@ -30,10 +30,12 @@ class Stats(object):
 
     def leaf_nodes(self, parent_id):
         if str(parent_id) == '0':  # all
-            ci_ids = [i.id for i in CI.get_by(type_id=self.subnet_type_id, to_dict=False)]
+            ci_ids = [i.id for i in CI.get_by(only_query=True).filter(
+                CI.type_id == self.subnet_type_id).filter(CI.deleted.is_(False)).all()]
             has_children_ci_ids = [i.first_ci_id for i in CIRelation.get_by(
                 only_query=True).join(CI, CIRelation.second_ci_id == CI.id).filter(
-                CIRelation.first_ci_id.in_(ci_ids)).filter(CI.type_id == self.subnet_type_id)]
+                CIRelation.first_ci_id.in_(ci_ids)).filter(CI.type_id == self.subnet_type_id).filter(
+                CI.deleted.is_(False)).filter(CIRelation.deleted.is_(False)).all()]
 
             return list(set(ci_ids) - set(has_children_ci_ids))
 
@@ -41,22 +43,55 @@ class Stats(object):
             _type = CIManager().get_by_id(parent_id)
             if not _type:
                 return abort(404, ErrFormat.ipam_subnet_not_found)
-            key = [(str(parent_id), _type.type_id)]
-            result = []
-            while True:
-                res = [json.loads(x).items() for x in [i or '{}' for i in rd.get(
-                    [i[0] for i in key], REDIS_PREFIX_CI_RELATION) or []]]
-
-                for idx, i in enumerate(res):
-                    if (not i or list(i)[0][1] == self.address_type_id) and key[idx][1] == self.subnet_type_id:
-                        result.append(int(key[idx][0]))
-
-                res = [j for i in res for j in i]  # [(id, type_id)]
-
-                if not res:
+            
+            # If parent_id is a subnet, check if it has children subnets
+            # If it has children subnets, return leaf nodes recursively
+            # If it doesn't have children subnets (or only has IP addresses), return the subnet itself
+            if _type.type_id == self.subnet_type_id:
+                # Check if this subnet has children subnets
+                children_subnets = CIRelation.get_by(
+                    only_query=True
+                ).join(
+                    CI, CIRelation.second_ci_id == CI.id
+                ).filter(
+                    CIRelation.first_ci_id == parent_id
+                ).filter(
+                    CI.type_id == self.subnet_type_id
+                ).filter(
+                    CI.deleted.is_(False)
+                ).filter(
+                    CIRelation.deleted.is_(False)
+                ).all()
+                
+                if children_subnets:
+                    # Has children subnets, recursively find leaf nodes
+                    result = []
+                    for child_relation in children_subnets:
+                        child_id = child_relation.second_ci_id
+                        child_leaf_nodes = self.leaf_nodes(child_id)
+                        result.extend(child_leaf_nodes)
                     return result
+                else:
+                    # No children subnets, this is a leaf node
+                    return [int(parent_id)]
+            else:
+                # Parent is not a subnet (e.g., scope), use Redis cache logic
+                key = [(str(parent_id), _type.type_id)]
+                result = []
+                while True:
+                    res = [json.loads(x).items() for x in [i or '{}' for i in rd.get(
+                        [i[0] for i in key], REDIS_PREFIX_CI_RELATION) or []]]
 
-                key = res
+                    for idx, i in enumerate(res):
+                        if (not i or list(i)[0][1] == self.address_type_id) and key[idx][1] == self.subnet_type_id:
+                            result.append(int(key[idx][0]))
+
+                    res = [j for i in res for j in i]  # [(id, type_id)]
+
+                    if not res:
+                        return result
+
+                    key = res
 
     def statistic_subnets(self, subnet_ids):
         if subnet_ids:
