@@ -78,9 +78,21 @@ class Search(object):
         self.is_app_admin = self.is_app_admin or (not self.use_ci_filter and not self.use_id_filter)
         
         # Define allowed table names for security
+        # Include all valid value tables from ValueTypeMap
+        from api.lib.cmdb.utils import ValueTypeMap
         self.allowed_table_names = {
-            'c_value_0', 'c_value_1', 'c_value_2', 'c_value_3', 'c_value_4', 'c_value_5', 'c_value_6'
+            'c_value_0', 'c_value_1', 'c_value_2', 'c_value_3', 'c_value_4', 'c_value_5', 'c_value_6',
+            # Add all index tables
+            'c_value_index_texts',
+            'c_value_index_integers',
+            'c_value_index_floats',
+            'c_value_index_datetime',
+            'c_value_texts',
+            'c_value_json',
         }
+        # Also add all table names from ValueTypeMap.table_name
+        if hasattr(ValueTypeMap, 'table_name'):
+            self.allowed_table_names.update(ValueTypeMap.table_name.values())
 
     def _validate_query_sql(self, query_sql):
         """
@@ -122,7 +134,7 @@ class Search(object):
                 raise SearchError("Invalid query: contains potentially dangerous SQL patterns")
         
         # Additional length check to prevent extremely long queries
-        if len(query_sql) > 10000:  # Adjust limit as needed
+        if len(query_sql) > 200000:  # Increased limit to handle large number of CIs
             current_app.logger.error(f"Query SQL too long: {len(query_sql)} characters")
             raise SearchError("Invalid query: query too long")
     
@@ -342,23 +354,23 @@ class Search(object):
         elif self.type_id_list and not self.multi_type_has_ci_filter:
             self.query_sql = "SELECT B.ci_id FROM ({0}) AS B {1}".format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({0}) ".format(
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({0}) AND c_cis.deleted = 0 ".format(
                     ",".join(self.type_id_list)))
 
             return ret_sql.format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({3}) "
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({3}) AND c_cis.deleted = 0 "
                 "ORDER BY B.ci_id {1} LIMIT {0:d}, {2};".format(
                     (self.page - 1) * self.count, sort_type, self.count, ",".join(self.type_id_list)))
 
         else:
             self.query_sql = "SELECT B.ci_id FROM ({0}) AS B {1}".format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id ")
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.deleted = 0 ")
 
             return ret_sql.format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id "
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.deleted = 0 "
                 "ORDER BY B.ci_id {1} LIMIT {0:d}, {2};".format((self.page - 1) * self.count, sort_type, self.count))
 
     def __sort_by_type(self, sort_type, query_sql):
@@ -367,23 +379,23 @@ class Search(object):
         if self.type_id_list and not self.multi_type_has_ci_filter:
             self.query_sql = "SELECT B.ci_id FROM ({0}) AS B {1}".format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({0}) ".format(
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({0}) AND c_cis.deleted = 0 ".format(
                     ",".join(self.type_id_list)))
 
             return ret_sql.format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({3}) "
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.type_id IN ({3}) AND c_cis.deleted = 0 "
                 "ORDER BY c_cis.type_id {1} LIMIT {0:d}, {2};".format(
                     (self.page - 1) * self.count, sort_type, self.count, ",".join(self.type_id_list)))
 
         else:
             self.query_sql = "SELECT B.ci_id FROM ({0}) AS B {1}".format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id ")
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.deleted = 0 ")
 
             return ret_sql.format(
                 query_sql,
-                "INNER JOIN c_cis on c_cis.id=B.ci_id "
+                "INNER JOIN c_cis on c_cis.id=B.ci_id WHERE c_cis.deleted = 0 "
                 "ORDER BY c_cis.type_id {1} LIMIT {0:d}, {2};".format(
                     (self.page - 1) * self.count, sort_type, self.count))
 
@@ -402,7 +414,8 @@ class Search(object):
             new_table = _v_query_sql
         else:
             _v_query_sql = """SELECT c_cis.id AS ci_id, c_cis.{0} AS value
-                                          FROM c_cis  INNER JOIN ({1}) AS ALIAS ON ALIAS.ci_id = c_cis.id""".format(
+                                          FROM c_cis  INNER JOIN ({1}) AS ALIAS ON ALIAS.ci_id = c_cis.id
+                                          WHERE c_cis.deleted = 0""".format(
                 field[1:], query_sql)
             new_table = _v_query_sql
 
@@ -414,12 +427,12 @@ class Search(object):
             self.query_sql = """SELECT C.ci_id
                                 FROM ({0}) AS C
                                 INNER JOIN c_cis on c_cis.id=C.ci_id
-                                WHERE c_cis.type_id IN ({1})""".format(new_table, ",".join(self.type_id_list))
+                                WHERE c_cis.type_id IN ({1}) AND c_cis.deleted = 0""".format(new_table, ",".join(self.type_id_list))
 
             return """SELECT SQL_CALC_FOUND_ROWS DISTINCT C.ci_id
                       FROM ({0}) AS C
                       INNER JOIN c_cis on c_cis.id=C.ci_id
-                      WHERE c_cis.type_id IN ({4})
+                      WHERE c_cis.type_id IN ({4}) AND c_cis.deleted = 0
                       ORDER BY C.value {2}
                       LIMIT {1:d}, {3};""".format(new_table,
                                                   (self.page - 1) * self.count,
@@ -657,8 +670,23 @@ class Search(object):
 
     def _filter_ids(self, query_sql):
         if self.ci_ids:
-            return "SELECT * FROM ({0}) AS IN_QUERY WHERE IN_QUERY.ci_id IN ({1})".format(
-                query_sql, ",".join(list(set(map(str, self.ci_ids)))))
+            unique_ids = list(set(map(str, self.ci_ids)))
+            # If too many IDs, use batch processing with UNION to avoid query too long
+            # MySQL has limits on query length and IN clause size
+            if len(unique_ids) > 1000:
+                # Split into batches of 1000 IDs each
+                batch_size = 1000
+                batches = []
+                for i in range(0, len(unique_ids), batch_size):
+                    batch = unique_ids[i:i + batch_size]
+                    batches.append("IN_QUERY.ci_id IN ({})".format(",".join(batch)))
+                
+                # Use UNION to combine batches
+                where_clause = " OR ".join(batches)
+                return "SELECT * FROM ({0}) AS IN_QUERY WHERE {1}".format(query_sql, where_clause)
+            else:
+                return "SELECT * FROM ({0}) AS IN_QUERY WHERE IN_QUERY.ci_id IN ({1})".format(
+                    query_sql, ",".join(unique_ids))
 
         return query_sql
 

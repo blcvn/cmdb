@@ -7,11 +7,11 @@ COPY cmdb-api /data/apps/cmdb
 
 WORKDIR /data/apps/cmdb
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+# RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 RUN apk add --no-cache tzdata gcc musl-dev libffi-dev openldap-dev python3-dev jpeg-dev zlib-dev build-base
 
-ENV TZ=Asia/Shanghai
+ENV TZ=Asia/Ho_Chi_Minh
 
 RUN pip install  --no-cache-dir -r requirements.txt \
     && cp ./settings.example.py settings.py \

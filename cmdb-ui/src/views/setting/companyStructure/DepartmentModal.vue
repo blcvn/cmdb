@@ -25,7 +25,7 @@
           :options="currentDepartmentParentList"
           v-model="departmentFormData.department_parent_id"
           class="ops-setting-treeselect"
-          placeholder="请选择上级部门"
+          :placeholder="$t('cs.companyStructure.parentDepartmentPlaceholder')"
           :normalizer="
             (node) => {
               return {

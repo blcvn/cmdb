@@ -21,9 +21,13 @@ from api.lib.cmdb.cache import CITypeCache
 from api.lib.cmdb.ci import CIManager
 from api.lib.cmdb.ci_type import CITypeGroupManager
 from api.lib.cmdb.const import AutoDiscoveryType
+from api.lib.cmdb.const import BuiltinModelEnum
 from api.lib.cmdb.const import CMDB_QUEUE
 from api.lib.cmdb.const import PermEnum
 from api.lib.cmdb.const import ResourceTypeEnum
+from api.lib.cmdb.ipam.address import IpAddressManager
+from api.lib.cmdb.ipam.const import IPAddressAssignStatus
+from api.lib.cmdb.ipam.const import IPAddressBuiltinAttributes
 from api.lib.cmdb.custom_dashboard import SystemConfigManager
 from api.lib.cmdb.resp_format import ErrFormat
 from api.lib.cmdb.search import SearchError
@@ -520,7 +524,14 @@ class AutoDiscoveryCITypeRelationCRUD(DBMixin):
         for r in relations:
             k = (r.get('ad_key'), r.get('peer_type_id'), r.get('peer_attr_id'))
             if len(list(filter(lambda x: x, k))) == 3 and k not in existed:
+                # Set default is_reverse=False if not provided
+                if 'is_reverse' not in r:
+                    r['is_reverse'] = False
                 self.cls.create(ad_type_id=ad_type_id, **r)
+            elif k in existed:
+                # Update existing relation if is_reverse is provided
+                if 'is_reverse' in r:
+                    existed[k].update(is_reverse=r['is_reverse'])
 
             new.append(k)
 
@@ -725,6 +736,132 @@ class AutoDiscoveryCICRUD(DBMixin):
             from api.tasks.cmdb import add_net_device_ports
             add_net_device_ports.apply_async(args=(ci_id, adc.instance['ports']),
                                              queue=CMDB_QUEUE)
+        
+        # Auto assign IP address if CI type is IPAM_ADDRESS
+        if ci_type and ci_type.name == BuiltinModelEnum.IPAM_ADDRESS and ci_id:
+            try:
+                ip = ci_dict.get(IPAddressBuiltinAttributes.IP)
+                subnet_id = ci_dict.get('subnet_id')
+                cidr = ci_dict.get('cidr')
+                ip_network_segment_vlan = ci_dict.get('ip_network_segment_vlan')
+                
+                if ip:
+                    # If ip_network_segment_vlan is provided, find subnet by matching with CIDR
+                    # ip_network_segment_vlan from IP address should match cidr of subnet
+                    if ip_network_segment_vlan and not subnet_id and not cidr:
+                        try:
+                            from api.lib.cmdb.ipam.const import SubnetBuiltinAttributes
+                            # Query subnet by CIDR matching ip_network_segment_vlan
+                            subnet_type = CITypeCache.get(BuiltinModelEnum.IPAM_SUBNET)
+                            if subnet_type:
+                                # Get CIDR attribute ID
+                                cidr_attr = AttributeCache.get(SubnetBuiltinAttributes.CIDR)
+                                if cidr_attr:
+                                    # Search for subnet with CIDR matching ip_network_segment_vlan
+                                    query = "_type:{},{}:{}".format(
+                                        subnet_type.id,
+                                        cidr_attr.id,
+                                        ip_network_segment_vlan
+                                    )
+                                    response, _, _, _, _, _ = ci_search(
+                                        query,
+                                        use_ci_filter=False,
+                                        count=1
+                                    ).search()
+                                    
+                                    if response:
+                                        subnet = response[0]
+                                        subnet_id = subnet['_id']
+                                        cidr = subnet.get(SubnetBuiltinAttributes.CIDR)
+                                        current_app.logger.info(
+                                            "Found subnet {} (cidr={}) matching ip_network_segment_vlan={}".format(
+                                                subnet_id, cidr, ip_network_segment_vlan
+                                            )
+                                        )
+                                    else:
+                                        current_app.logger.warning(
+                                            "No subnet found with cidr matching ip_network_segment_vlan={}".format(
+                                                ip_network_segment_vlan
+                                            )
+                                        )
+                                else:
+                                    current_app.logger.warning(
+                                        "CIDR attribute not found for subnet CI type"
+                                    )
+                        except Exception as e:
+                            current_app.logger.warning(
+                                "Failed to find subnet by ip_network_segment_vlan {}: {}".format(
+                                    ip_network_segment_vlan, str(e)
+                                )
+                            )
+                    
+                    # If subnet_id is provided but cidr is not, get cidr from subnet
+                    if subnet_id and not cidr:
+                        try:
+                            from api.lib.cmdb.ipam.const import SubnetBuiltinAttributes
+                            subnet = CIManager.get_ci_by_id(subnet_id, need_children=False)
+                            if subnet:
+                                cidr = subnet.get(SubnetBuiltinAttributes.CIDR)
+                                if cidr:
+                                    current_app.logger.debug(
+                                        "Retrieved CIDR {} from subnet_id {}".format(cidr, subnet_id)
+                                    )
+                        except Exception as e:
+                            current_app.logger.warning(
+                                "Failed to get CIDR from subnet_id {}: {}".format(subnet_id, str(e))
+                            )
+                    
+                    # Prepare kwargs for assign_ips
+                    assign_kwargs = {}
+                    
+                    # Set assign_status if provided, default to ASSIGNED
+                    assign_status = ci_dict.get(IPAddressBuiltinAttributes.ASSIGN_STATUS)
+                    if assign_status is not None:
+                        assign_kwargs[IPAddressBuiltinAttributes.ASSIGN_STATUS] = assign_status
+                    else:
+                        assign_kwargs[IPAddressBuiltinAttributes.ASSIGN_STATUS] = IPAddressAssignStatus.ASSIGNED
+                    
+                    # Set is_used if provided
+                    is_used = ci_dict.get(IPAddressBuiltinAttributes.IS_USED)
+                    if is_used is not None:
+                        assign_kwargs[IPAddressBuiltinAttributes.IS_USED] = is_used
+                    
+                    # Copy other attributes that might be useful (hostname, owner, etc.)
+                    for key in ['hostname', 'owner', 'description', 'status']:
+                        if key in ci_dict:
+                            assign_kwargs[key] = ci_dict[key]
+                    
+                    # Assign IP to subnet
+                    if subnet_id or cidr:
+                        try:
+                            IpAddressManager().assign_ips(
+                                [ip],
+                                subnet_id,
+                                cidr,
+                                **assign_kwargs
+                            )
+                            current_app.logger.info(
+                                "Auto-assigned IP {} to subnet {} (subnet_id={}, cidr={}, vlan={}, assign_status={})".format(
+                                    ip, subnet_id or cidr, subnet_id, cidr, ip_network_segment_vlan,
+                                    assign_kwargs.get(IPAddressBuiltinAttributes.ASSIGN_STATUS)
+                                )
+                            )
+                        except Exception as assign_err:
+                            current_app.logger.error(
+                                "Failed to assign IP {} to subnet {}: {}".format(
+                                    ip, subnet_id or cidr, str(assign_err)
+                                )
+                            )
+                            raise  # Re-raise to be caught by outer exception handler
+                    else:
+                        current_app.logger.warning(
+                            "IP {} discovered but subnet_id, cidr, or ip_network_segment_vlan not provided, skipping auto-assign".format(ip)
+                        )
+            except Exception as e:
+                # Log error but don't fail the accept process
+                current_app.logger.error(
+                    "Failed to auto-assign IP address for CI {}: {}".format(ci_id, str(e))
+                )
             
         adc.update(is_accept=True,
                    accept_by=nickname or current_user.nickname,

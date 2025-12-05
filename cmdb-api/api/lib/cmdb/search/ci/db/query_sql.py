@@ -15,6 +15,7 @@ QUERY_CIS_BY_VALUE_TABLE = """
    FROM {0}
    INNER JOIN c_cis ON {0}.ci_id=c_cis.id
    AND {0}.`ci_id` IN ({1})
+   AND c_cis.deleted = 0
    INNER JOIN c_attributes as attr ON attr.id = {0}.attr_id
 """
 
@@ -62,13 +63,13 @@ QUERY_CI_BY_ATTR_NAME = """
 QUERY_CI_BY_ID = """
     SELECT c_cis.id as ci_id
     FROM c_cis
-    WHERE c_cis.id {}
+    WHERE c_cis.id {} AND c_cis.deleted = 0
 """
 
 QUERY_CI_BY_TYPE = """
     SELECT c_cis.id AS ci_id
     FROM c_cis
-    WHERE c_cis.type_id in ({0})
+    WHERE c_cis.type_id in ({0}) AND c_cis.deleted = 0
 """
 
 QUERY_UNION_CI_ATTRIBUTE_IS_NULL = """
@@ -76,7 +77,7 @@ QUERY_UNION_CI_ATTRIBUTE_IS_NULL = """
     FROM (
       SELECT c_cis.id AS ci_id
       FROM c_cis
-      WHERE c_cis.type_id IN ({0})
+      WHERE c_cis.type_id IN ({0}) AND c_cis.deleted = 0
     ) {3}
       LEFT JOIN (
         SELECT {1}.ci_id

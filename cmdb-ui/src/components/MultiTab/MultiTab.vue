@@ -68,7 +68,7 @@ export default {
           }
         })
       } else {
-        this.$message.info('左侧没有标签')
+        this.$message.info('No tabs on the left')
       }
     },
     closeRight (e) {
@@ -80,7 +80,7 @@ export default {
           }
         })
       } else {
-        this.$message.info('右侧没有标签')
+        this.$message.info('No tabs on the right')
       }
     },
     closeAll (e) {
@@ -112,10 +112,10 @@ export default {
     renderTabPaneMenu (e) {
       return (
         <a-menu {...{ on: { click: this.closeMenuClick } }}>
-          <a-menu-item key="close-that" data-vkey={e}>关闭当前标签</a-menu-item>
-          <a-menu-item key="close-right" data-vkey={e}>关闭右侧</a-menu-item>
-          <a-menu-item key="close-left" data-vkey={e}>关闭左侧</a-menu-item>
-          <a-menu-item key="close-all" data-vkey={e}>关闭全部</a-menu-item>
+          <a-menu-item key="close-that" data-vkey={e}>Close current tab</a-menu-item>
+          <a-menu-item key="close-right" data-vkey={e}>Close right</a-menu-item>
+          <a-menu-item key="close-left" data-vkey={e}>Close left</a-menu-item>
+          <a-menu-item key="close-all" data-vkey={e}>Close all</a-menu-item>
         </a-menu>
       )
     },

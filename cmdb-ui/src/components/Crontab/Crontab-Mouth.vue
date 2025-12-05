@@ -2,30 +2,30 @@
   <el-form size="small">
     <el-form-item>
       <el-radio v-model="radioValue" :label="1">
-        月，允许的通配符[, - * /]
+        Month, allowed wildcards [, - * /]
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="2">
-        周期从
+        Cycle from
         <el-input-number v-model="cycle01" :min="1" :max="12" /> -
-        <el-input-number v-model="cycle02" :min="1" :max="12" /> 月
+        <el-input-number v-model="cycle02" :min="1" :max="12" /> month
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="3">
-        从
-        <el-input-number v-model="average01" :min="1" :max="12" /> 月开始，每
-        <el-input-number v-model="average02" :min="1" :max="12" /> 月月执行一次
+        From
+        <el-input-number v-model="average01" :min="1" :max="12" /> start at month, every
+        <el-input-number v-model="average02" :min="1" :max="12" /> months
       </el-radio>
     </el-form-item>
 
     <el-form-item>
       <el-radio v-model="radioValue" :label="4">
-        指定
-        <el-select clearable v-model="checkboxList" placeholder="可多选" multiple style="width:100%">
+        Specify
+        <el-select clearable v-model="checkboxList" placeholder="Multiple" multiple style="width:100%">
           <el-option v-for="item in 12" :key="item" :value="item">{{ item }}</el-option>
         </el-select>
       </el-radio>

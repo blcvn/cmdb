@@ -44,7 +44,7 @@
             </template>
             <div class="discovery-resources-left">
               <ops-icon class="discovery-resources-icon" type="cmdb-discovery_resources" />
-              <span class="discovery-resources-count">{{ rule.resources.length }}{{ $i18n.locale === 'zh' ? '个' : '' }}</span>
+              <span class="discovery-resources-count">{{ rule.resources.length }}</span>
             </div>
           </a-tooltip>
           <div class="discovery-resources-right">
@@ -113,9 +113,9 @@ export default {
     return {
       DISCOVERY_CATEGORY_TYPE,
       borderTopColorMap: {
-        '阿里云': '#FFB287',
-        '腾讯云': '#87BEFF',
-        '华为云': '#FFB8B8',
+        'Aliyun': '#FFB287',
+        'Tencent Cloud': '#87BEFF',
+        'Huawei Cloud': '#FFB8B8',
         'AWS': '#FFC187',
       }
     }

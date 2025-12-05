@@ -3,7 +3,7 @@
     <a-form-item v-for="(node, index) in nodes" :key="node.id">
       <a-row :gutter="24">
         <a-col :span="6" :offset="1">
-          <a-form-item :label="index ? '' : 'ip地址'">
+          <a-form-item :label="index ? '' : 'IP Address'">
             <a-input
               allowClear
               size="small"
@@ -11,48 +11,48 @@
                 `node_ip_${node.id}`,
                 {
                   rules: [
-                    { required: false, message: '请输入ip地址' },
+                    { required: false, message: 'Please enter IP address' },
                     {
                       pattern:
                         '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
-                      message: 'ip地址格式错误',
+                      message: 'Invalid IP address format',
                       trigger: 'blur',
                     },
                   ],
                 },
               ]"
-              placeholder="请输入ip地址"
+              placeholder="Please enter IP address"
             />
           </a-form-item>
         </a-col>
 
         <a-col :span="6">
-          <a-form-item :label="index ? '' : 'community'" colon>
+          <a-form-item :label="index ? '' : 'Community'" colon>
             <a-input
               allowClear
               size="small"
               v-decorator="[
                 `node_community_${node.id}`,
                 {
-                  rules: [{ required: false, message: '请输入community' }],
+                  rules: [{ required: false, message: 'Please enter community' }],
                 },
               ]"
-              placeholder="请输入community"
+              placeholder="Please enter community"
             />
           </a-form-item>
         </a-col>
 
         <a-col :span="6">
-          <a-form-item :label="index ? '' : '版本'" colon>
+          <a-form-item :label="index ? '' : 'Version'" colon>
             <a-select
               size="small"
               v-decorator="[
                 `node_version_${node.id}`,
                 {
-                  rules: [{ required: false, message: '请输入版本' }],
+                  rules: [{ required: false, message: 'Please enter version' }],
                 },
               ]"
-              placeholder="请选择版本"
+              placeholder="Please select version"
             >
               <a-select-option value="1">
                 v1

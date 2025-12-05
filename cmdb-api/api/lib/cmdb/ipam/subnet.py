@@ -80,22 +80,27 @@ class SubnetManager(object):
         relations = defaultdict(set)
         ids = set()
         has_parent_ids = set()
+        # Filter deleted CIs and CIRelations
         for i in CIRelation.get_by(only_query=True).join(
-                CI, CI.id == CIRelation.first_ci_id).filter(CI.type_id.in_(ci_types)):
+                CI, CI.id == CIRelation.first_ci_id).filter(
+                CI.type_id.in_(ci_types)).filter(CI.deleted.is_(False)).filter(CIRelation.deleted.is_(False)):
             relations[i.first_ci_id].add(i.second_ci_id)
             ids.add(i.first_ci_id)
             ids.add(i.second_ci_id)
             has_parent_ids.add(i.second_ci_id)
         for i in CIRelation.get_by(only_query=True).join(
-                CI, CI.id == CIRelation.second_ci_id).filter(CI.type_id.in_(ci_types)):
+                CI, CI.id == CIRelation.second_ci_id).filter(
+                CI.type_id.in_(ci_types)).filter(CI.deleted.is_(False)).filter(CIRelation.deleted.is_(False)):
             relations[i.first_ci_id].add(i.second_ci_id)
             ids.add(i.first_ci_id)
             ids.add(i.second_ci_id)
             has_parent_ids.add(i.second_ci_id)
 
-        for i in CI.get_by(only_query=True).filter(CI.type_id.in_(ci_types)):
+        # Query all CIs of the types (including scopes without relations)
+        for i in CI.get_by(only_query=True).filter(CI.type_id.in_(ci_types)).filter(CI.deleted.is_(False)):
             ids.add(i.id)
 
+        # Add root nodes (CIs without parents) to relations[None]
         for _id in ids:
             if _id not in has_parent_ids:
                 relations[None].add(_id)
@@ -108,23 +113,24 @@ class SubnetManager(object):
             type2name[scope.id] = AttributeCache.get(scope.show_id or scope.unique_id).name
             fl.append(type2name[scope.id])
 
-        response, _, _, _, _, _ = SearchFromDB("_type:({})".format(";".join(map(str, ci_types))),
-                                               ci_ids=list(ids),
-                                               count=1000000,
-                                               fl=list(set(fl + [SubnetBuiltinAttributes.CIDR])),
-                                               parent_node_perm_passed=True).search()
+        response, _, _, _, _, _ = SearchFromDB(
+            "_type:({})".format(";".join(map(str, ci_types))),
+            ci_ids=list(ids),
+            count=1000000,
+            fl=list(set(fl + [SubnetBuiltinAttributes.CIDR])),
+            parent_node_perm_passed=True).search()
         id2ci = {i['_id']: i for i in response}
 
         def _build_tree(_tree, parent_id=None):
             tree = []
             for child_id in _tree.get(parent_id, []):
-                children = sorted(_build_tree(_tree, child_id), key=lambda x: x['_id'])
+                children = sorted(_build_tree(_tree, child_id), key=lambda x: int(x.get('_id') or x.get('ci_id') or 0))
                 if not id2ci.get(child_id):
                     continue
                 tree.append({'children': children, **id2ci[child_id]})
             return tree
 
-        result = sorted(_build_tree(relations), key=lambda x: x['_id'])
+        result = sorted(_build_tree(relations), key=lambda x: int(x.get('_id') or x.get('ci_id') or 0))
 
         return result, type2name
 
@@ -140,7 +146,7 @@ class SubnetManager(object):
             return abort(400, ErrFormat.ipam_cidr_invalid_notation.format(cidr))
 
     def _check_root_node_is_overlapping(self, cidr, _id=None):
-        none_root_nodes = [i.id for i in CI.get_by(only_query=True).join(
+        none_root_nodes = [i.id for i in CI.get_by(only_query=True).filter(CI.deleted.is_(False)).join(
             CIRelation, CIRelation.second_ci_id == CI.id).filter(CI.type_id == self.type_id)]
         all_nodes = [i.id for i in CI.get_by(type_id=self.type_id, to_dict=False, fl=['id'])]
 
@@ -209,6 +215,11 @@ class SubnetManager(object):
         kwargs[SubnetBuiltinAttributes.USED_COUNT] = 0
         kwargs[SubnetBuiltinAttributes.ASSIGN_COUNT] = 0
         kwargs[SubnetBuiltinAttributes.FREE_COUNT] = kwargs[SubnetBuiltinAttributes.HOSTS_COUNT]
+        
+        # Set default status to VALIDATE if not provided
+        from api.lib.cmdb.const import CIStatusEnum
+        if 'status' not in kwargs:
+            kwargs['status'] = CIStatusEnum.VALIDATE
 
         return CIManager().add(self.type_id, cidr=cidr, **kwargs)
 

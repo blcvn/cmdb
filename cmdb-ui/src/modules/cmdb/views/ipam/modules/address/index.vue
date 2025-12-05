@@ -227,19 +227,39 @@ export default {
   },
   computed: {
     addressNullTip() {
-      if (
-        this?.nodeData?.isSubnet &&
-        this?.nodeData?.cidr &&
-        this?.nodeData?.children?.length === 0
-      ) {
-        const cidrSplit = this.nodeData?.cidr?.split?.('/')
-        const cidrNumber = cidrSplit[cidrSplit.length - 1]
-        if (Number(cidrNumber) >= 16) {
-          return ''
-        } else {
-          return 'cmdb.ipam.addressNullTip2'
-        }
+      // If we're loading data, don't show "No Data" message yet
+      if (this.loading) {
+        return ''
       }
+
+      // If we already have IP list data, don't show "No Data" message
+      // This handles the case when IP addresses are assigned
+      if (this.ipList && Object.keys(this.ipList).length > 0) {
+        return ''
+      }
+
+      // If nodeData is a subnet, check if we can display addresses
+      if (this?.nodeData?.isSubnet) {
+        const childrenLength = this?.nodeData?.children?.length || 0
+        // Only show addresses if it's a leaf node (no children)
+        if (childrenLength === 0) {
+          // If cidr is available, check CIDR size
+          if (this?.nodeData?.cidr) {
+            const cidrSplit = this.nodeData.cidr.split('/')
+            const cidrNumber = cidrSplit[cidrSplit.length - 1]
+            if (Number(cidrNumber) >= 16) {
+              return ''
+            } else {
+              return 'cmdb.ipam.addressNullTip2'
+            }
+          }
+          // If subnet but no cidr yet, allow display (will fetch cidr from API)
+          return ''
+        }
+        // If subnet has children, show message to select leaf node
+        return 'cmdb.ipam.addressNullTip'
+      }
+      // If not a subnet, show message to select subnet
       return 'cmdb.ipam.addressNullTip'
     },
     addressCITypeId() {
@@ -296,15 +316,22 @@ export default {
         if (
           node &&
           node?.isSubnet &&
-          node?.cidr &&
-          node?.children?.length === 0 &&
           node?.key !== oldNode?.key
         ) {
-          const cidrSplit = node?.cidr?.split?.('/')
-          const cidrNumber = cidrSplit[cidrSplit.length - 1]
-
-          if (Number(cidrNumber) >= 16) {
-            this.initData()
+          const childrenLength = node?.children?.length || 0
+          // Only load addresses for leaf nodes (no children)
+          if (childrenLength === 0) {
+            // If cidr is available, check CIDR size
+            if (node?.cidr) {
+              const cidrSplit = node.cidr.split('/')
+              const cidrNumber = cidrSplit[cidrSplit.length - 1]
+              if (Number(cidrNumber) >= 16) {
+                this.initData()
+              }
+            } else {
+              // If no cidr, still try to load (will fetch cidr from API)
+              this.initData()
+            }
           }
         }
       }
@@ -363,16 +390,29 @@ export default {
     },
 
     async getIPList(isInit = false) {
+      // Fetch subnet data first to get cidr if not available
+      const subnetData = await getIPAMSubnetById(this.nodeData.key)
+      this.subnetData = subnetData
+
+      // Use cidr from subnetData if nodeData doesn't have it
+      const cidr = this.nodeData.cidr || subnetData?.cidr
+      if (!cidr) {
+        console.warn('No CIDR found for subnet:', this.nodeData.key)
+        // Don't reset ipList if we already have data, just return
+        // This prevents clearing the list when there's a temporary issue
+        if (!this.ipList || Object.keys(this.ipList).length === 0) {
+          this.ipList = {}
+        }
+        return
+      }
+
       const hostsList = await getIPAMHosts({
-        cidr: this.nodeData.cidr
+        cidr: cidr
       })
 
       const res = await getIPAMAddress({
         parent_id: this.nodeData.key
       })
-
-      const subnetData = await getIPAMSubnetById(this.nodeData.key)
-      this.subnetData = subnetData
 
       const addressMap = {}
       if (res?.result?.length) {
@@ -653,10 +693,13 @@ export default {
           this.selectedIPList = []
         }
         this.$message.success(this.$t('cmdb.ipam.batchAssignCompleted'))
+        // Refresh IP list before setting loading to false
+        // This ensures ipList is updated before addressNullTip is recalculated
+        await this.getIPList()
         this.loading = false
-        this.getIPList()
       } catch (error) {
         console.log('error', error)
+        this.loading = false
       }
     },
 

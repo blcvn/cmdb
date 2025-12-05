@@ -93,8 +93,8 @@
         </span>
       </template>
       <template #default="{ row }">
-        <span v-if="row.sex === '男'">{{ $t('cs.companyStructure.male') }}</span>
-        <span v-if="row.sex === '女'">{{ $t('cs.companyStructure.female') }}</span>
+        <span v-if="row.sex === '男' || row.sex === 'male'">{{ $t('cs.companyStructure.male') }}</span>
+        <span v-if="row.sex === '女' || row.sex === 'female'">{{ $t('cs.companyStructure.female') }}</span>
       </template>
     </vxe-column>
     <vxe-column
@@ -554,7 +554,7 @@ export default {
         data: this.$refs.employeeTable.getCheckboxRecords().map((item) => {
           return {
             ...item,
-            is_internship: item.is_internship ? '实习生' : '正式',
+            is_internship: item.is_internship ? 'Internship' : 'Full-time',
             direct_supervisor_id: getDirectorName(this.allFlatEmployees, item.direct_supervisor_id),
           }
         }),

@@ -9,8 +9,8 @@
         :placeholder="$t('placeholderSearch')"
         v-model="treeValue"
         :max-height="height - 50"
-        noChildrenText="空"
-        noOptionsText="空"
+        noChildrenText="Empty"
+        noOptionsText="Empty"
         :clearable="false"
         :always-open="true"
         :default-expand-level="showInternship ? 0 : 1"
@@ -113,8 +113,8 @@ export default {
       if (this.showInternship) {
         formatOptions.push(
           ...[
-            { id: -2, label: '全职' },
-            { id: -3, label: '实习生' },
+            { id: -2, label: 'Full-time' },
+            { id: -3, label: 'Internship' },
           ]
         )
       }
@@ -209,10 +209,10 @@ export default {
     },
     getLabel(id) {
       if (id === -2) {
-        return '全职'
+        return 'Full-time'
       }
       if (id === -3) {
-        return '实习生'
+        return 'Internship'
       }
       const _split = id.split('-')
       const type = _split[0]

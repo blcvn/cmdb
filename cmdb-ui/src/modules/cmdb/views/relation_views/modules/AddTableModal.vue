@@ -27,7 +27,7 @@
             slot="extraContent"
             type="primary"
             size="small"
-          >新增</a-button
+          >Add</a-button
           >
         </SearchForm>
         <ops-table

@@ -170,7 +170,8 @@ export default {
       const showCount = Object.values(this.filterCategoryChildren).reduce((acc, item) => {
         return acc + (item?.children?.length || 0)
       }, 0)
-      return showCount === 0
+      // Always show if can add plugin (even when no data)
+      return showCount === 0 && !this.showAddPlugin
     },
     showAddPlugin() {
       return !this.isSelected && this.searchValue === ''

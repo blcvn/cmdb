@@ -1,6 +1,6 @@
 <template>
   <div class="popup-result">
-    <p class="title">最近5次运行时间</p>
+    <p class="title">Next 5 run times</p>
     <ul class="popup-result-scroll">
       <template v-if="isShow">
         <li v-for="item in resultList" :key="item">{{ item }}</li>
@@ -336,7 +336,7 @@ export default {
       } else {
         this.resultList = resultArr
         if (resultArr.length !== 5) {
-          this.resultList.push('最近100年内只有上面' + resultArr.length + '条结果！')
+          this.resultList.push('Only ' + resultArr.length + ' results within the next 100 years!')
         }
       }
       // 计算完成-显示结果

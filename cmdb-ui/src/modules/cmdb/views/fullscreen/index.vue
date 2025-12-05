@@ -5,19 +5,19 @@
       ref="fullScreenButton"
       @click="handleFullscreen"
       :style="{ visibility: 'hidden', position: 'absolute' }"
-    >全屏</a-button
+    >Fullscreen</a-button
     >
     <div class="cmdb-fullscreen-left">
       <div class="cmdb-fullscreen-wrapper short-title">
-        <span class="title" :style="{ left: '2.2em' }">券商部署</span>
+        <span class="title" :style="{ left: '2.2em' }">Broker Deployment</span>
         <div id="pie-box" class="pie-box"></div>
       </div>
       <div class="cmdb-fullscreen-wrapper short-title">
-        <span class="title" :style="{ left: '1.6em' }">服务器上架</span>
+        <span class="title" :style="{ left: '1.6em' }">Server Onboarding</span>
         <div id="line-box" class="line-box"></div>
       </div>
       <div class="cmdb-fullscreen-wrapper long-title">
-        <span class="title" :style="{ left: '1.5em' }">应用占服务器个数</span>
+        <span class="title" :style="{ left: '1.5em' }">Application Server Count</span>
         <div class="line-wrapper-application">
           <ProcessLine
             v-for="item in applicationList"
@@ -30,7 +30,7 @@
         </div>
       </div>
       <div class="cmdb-fullscreen-wrapper long-title">
-        <span class="title" :style="{ left: '1em' }">事业部占服务器个数</span>
+        <span class="title" :style="{ left: '1em' }">Business Unit Server Count</span>
         <div class="line-wrapper-businesss">
           <ProcessLine
             v-for="item in businessList"
@@ -46,7 +46,7 @@
     <div class="cmdb-fullscreen-right">
       <div class="cmdb-fullscreen-right-bottom">
         <div class="cmdb-fullscreen-wrapper first long-wrapper">
-          <span class="title" :style="{ left: '2.2em' }">公司资产</span>
+          <span class="title" :style="{ left: '2.2em' }">Company Assets</span>
           <AssetsCard v-for="item in assetsList" :key="item.name">
             <img slot="image1" :src="require(`../../assets/fullscreen/assets_${item.image}_top.png`)" />
             <img slot="image2" :src="require(`../../assets/fullscreen/assets_${item.image}_bottom.png`)" />
@@ -62,7 +62,7 @@
           </AssetsCard>
         </div>
         <div class="cmdb-fullscreen-wrapper second short-title">
-          <span class="title" :style="{ left: '2.8em' }">资源配置</span>
+          <span class="title" :style="{ left: '2.8em' }">Resource Config</span>
           <div class="resource">
             <div class="resource-server">
               <div class="inner-box">
@@ -92,12 +92,12 @@
                   <div class="inner-subtitle">{{ item.name }}</div>
                 </div>
                 <div class="inner-box-legend">
-                  <div class="inner-subtitle legend core_8">8核</div>
-                  <div class="inner-subtitle legend core_4">4核</div>
-                  <div class="inner-subtitle legend core_2">2核</div>
+                  <div class="inner-subtitle legend core_8">8 Cores</div>
+                  <div class="inner-subtitle legend core_4">4 Cores</div>
+                  <div class="inner-subtitle legend core_2">2 Cores</div>
                 </div>
               </div>
-              <div class="inner-title">服务器 按事业部分类</div>
+              <div class="inner-title">Server by Business Unit</div>
             </div>
             <div class="resource-product">
               <div class="inner-box">
@@ -119,13 +119,13 @@
                   <div class="inner-subtitle product-legend Service">Service</div>
                 </div>
               </div>
-              <div class="inner-title">产品 按事业部分类</div>
+              <div class="inner-title">Product by Business Unit</div>
             </div>
           </div>
         </div>
       </div>
       <div class="cmdb-fullscreen-total">
-        <span>全区总台数</span>
+        <span>Total Count</span>
         <span
           class="cmdb-fullscreen-total-number"
           v-for="(number, index) in [0, 0, 2, 1, 0]"
@@ -136,13 +136,13 @@
       </div>
       <div class="cmdb-fullscreen-server">
         <img :style="{ width: '1.3125em', height: '2.875em' }" src="../../assets/fullscreen/server_icon.png" />
-        <span>服务器数目</span>
+        <span>Server Count</span>
         <div class="cmdb-fullscreen-server-outer">
-          <div class="cmdb-fullscreen-server-inner"><span>100</span><br /><span>中国</span></div>
-          <div class="cmdb-fullscreen-server-inner"><span>50</span><br /><span>印度</span></div>
-          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>新加坡</span></div>
-          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>美国</span></div>
-          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>德国</span></div>
+          <div class="cmdb-fullscreen-server-inner"><span>100</span><br /><span>China</span></div>
+          <div class="cmdb-fullscreen-server-inner"><span>50</span><br /><span>India</span></div>
+          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>Singapore</span></div>
+          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>USA</span></div>
+          <div class="cmdb-fullscreen-server-inner"><span>20</span><br /><span>Germany</span></div>
         </div>
       </div>
     </div>

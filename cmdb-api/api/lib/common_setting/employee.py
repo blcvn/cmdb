@@ -910,7 +910,7 @@ class GrantEmployeeACLPerm(object):
     def __init__(self, acl=None):
         self.perms_by_create_resources_type = ['read', 'grant', 'delete', 'update']
         self.perms_by_common_grant = ['read']
-        self.resource_name_list = ['公司信息', '公司架构', '通知设置']
+        self.resource_name_list = ['Company Info', 'Company Structure', 'Notice Settings']
 
         self.acl = acl if acl else self.check_app('backend')
         self.resources_types = self.acl.get_all_resources_types()
@@ -930,11 +930,11 @@ class GrantEmployeeACLPerm(object):
         return acl
 
     def get_resources_type(self):
-        results = list(filter(lambda t: t['name'] == '操作权限', self.resources_types['groups']))
+        results = list(filter(lambda t: t['name'] == 'Operation Permission', self.resources_types['groups']))
         if len(results) == 0:
             payload = dict(
                 app_id=self.acl.app_name,
-                name='操作权限',
+                name='Operation Permission',
                 description='',
                 perms=self.perms_by_create_resources_type
             )

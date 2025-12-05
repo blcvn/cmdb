@@ -289,6 +289,8 @@ const cmdb_zh = {
         relationADSelectModelAttr: '请选择关联模型属性',
         relationADTip2: '当自动发现属性与关联模型属性一致时，两实例模型则自动关联',
         relationADTip3: '如果自动发现的属性值是列表，则会和关联模型建立多个关系',
+        relationADReverse: '反向关系',
+        relationADReverseTip: '如果勾选，关系方向将反转：peer_ci -> ad_ci（而不是 ad_ci -> peer_ci）',
         deleteRelationAdTip: '不可再删除',
         cronTips: '格式同crontab, 例如：0 15 * * 1-5',
         privateCloud: 'vSphere API配置',

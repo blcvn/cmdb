@@ -81,7 +81,7 @@ export default {
       return this.TreeData.hasSub
     },
     isEditable() {
-      return this.hasDetailPermission('backend', '公司架构', ['update'])
+      return this.hasDetailPermission('backend', 'Company Structure', ['update'])
     },
   },
   created() {

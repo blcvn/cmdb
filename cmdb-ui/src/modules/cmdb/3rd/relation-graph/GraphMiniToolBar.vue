@@ -8,11 +8,11 @@
   >
     <div class="c-mb-button" style="margin-top: 0px;" @click="graphSetting.fullscreen = !graphSetting.fullscreen">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-resize-"></use></svg>
-      <span class="c-mb-text">{{ graphSetting.fullscreen ? '退出' : '全屏' }}</span>
+      <span class="c-mb-text">{{ graphSetting.fullscreen ? 'Exit' : 'Full' }}</span>
     </div>
     <div v-if="graphSetting.allowShowZoomMenu" class="c-mb-button" @click="$parent.zoom(20)">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-fangda"></use></svg>
-      <span class="c-mb-text">放大</span>
+      <span class="c-mb-text">Zoom In</span>
     </div>
     <div
       v-if="graphSetting.allowShowZoomMenu"
@@ -24,11 +24,11 @@
     <!--<div style="float:left;margin-top:0px;height:20px;width:40px;border-top:0px;border-bottom:0px;background-color: #ffffff;color: #262626;font-size: 10px;background-color: #efefef;text-align: center;line-height: 20px;">{{ hits }}</div>-->
     <div v-if="graphSetting.allowShowZoomMenu" class="c-mb-button" style="margin-top:0px;" @click="$parent.zoom(-20)">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-suoxiao"></use></svg>
-      <span class="c-mb-text">缩小</span>
+      <span class="c-mb-text">Zoom Out</span>
     </div>
     <div v-if="graphSetting.layouts.length > 1" class="c-mb-button">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-yuanquanfenxiang"></use></svg>
-      <span class="c-mb-text">布局</span>
+      <span class="c-mb-text">Layout</span>
       <div
         :style="{
           width: graphSetting.layouts.length * 70 + 6 + 'px',
@@ -51,7 +51,7 @@
     </div>
     <div v-if="graphSetting.allowSwitchLineShape" class="c-mb-button">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-hj2"></use></svg>
-      <span class="c-mb-text">线条</span>
+      <span class="c-mb-text">Line</span>
       <div class="c-mb-child-panel" style="width:256px;margin-left:-255px;">
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultLineShape === 1 }"
@@ -60,7 +60,7 @@
           @click="graphSetting.defaultLineShape = 1"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-hj2"></use></svg>
-          <span class="c-mb-text">直线</span>
+          <span class="c-mb-text">Straight</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultLineShape === 2 }"
@@ -69,7 +69,7 @@
           @click="graphSetting.defaultLineShape = 2"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjieliu"></use></svg>
-          <span class="c-mb-text">简洁</span>
+          <span class="c-mb-text">Simple</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultLineShape === 6 }"
@@ -78,7 +78,7 @@
           @click="graphSetting.defaultLineShape = 6"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjieliu"></use></svg>
-          <span class="c-mb-text">生动</span>
+          <span class="c-mb-text">Curve</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultLineShape === 5 }"
@@ -87,7 +87,7 @@
           @click="graphSetting.defaultLineShape = 5"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjieliu"></use></svg>
-          <span class="c-mb-text">鱼尾</span>
+          <span class="c-mb-text">Arrow</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultLineShape === 4 }"
@@ -96,13 +96,13 @@
           @click="graphSetting.defaultLineShape = 4"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-hj2"></use></svg>
-          <span class="c-mb-text">折线</span>
+          <span class="c-mb-text">Broken</span>
         </div>
       </div>
     </div>
     <div v-if="graphSetting.allowSwitchJunctionPoint" class="c-mb-button">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjie_connecting5"></use></svg>
-      <span class="c-mb-text">连接点</span>
+      <span class="c-mb-text">Connect</span>
       <div class="c-mb-child-panel" style="width:206px;margin-left:-205px;">
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultJunctionPoint === 'border' }"
@@ -111,7 +111,7 @@
           @click="graphSetting.defaultJunctionPoint = 'border'"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjie_connecting5"></use></svg>
-          <span class="c-mb-text">边缘</span>
+          <span class="c-mb-text">Border</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultJunctionPoint === 'ltrb' }"
@@ -120,7 +120,7 @@
           @click="graphSetting.defaultJunctionPoint = 'ltrb'"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjie_connecting5"></use></svg>
-          <span class="c-mb-text">四点</span>
+          <span class="c-mb-text">4 Point</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultJunctionPoint === 'tb' }"
@@ -129,7 +129,7 @@
           @click="graphSetting.defaultJunctionPoint = 'tb'"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjie_connecting5"></use></svg>
-          <span class="c-mb-text">上下</span>
+          <span class="c-mb-text">V</span>
         </div>
         <div
           :class="{ 'c-mb-button-on': graphSetting.defaultJunctionPoint === 'lr' }"
@@ -138,13 +138,13 @@
           @click="graphSetting.defaultJunctionPoint = 'lr'"
         >
           <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjie_connecting5"></use></svg>
-          <span class="c-mb-text">左右</span>
+          <span class="c-mb-text">H</span>
         </div>
       </div>
     </div>
     <div
       v-if="graphSetting.isNeedShowAutoLayoutButton"
-      :title="graphSetting.autoLayouting ? '点击停止自动布局' : '点击开始自动调整布局'"
+      :title="graphSetting.autoLayouting ? 'Click to stop auto layout' : 'Click to start auto layout'"
       :class="{ 'c-mb-button-on': graphSetting.autoLayouting }"
       class="c-mb-button"
       @click="toggleAutoLayout"
@@ -153,15 +153,15 @@
         <use xlink:href="#icon-zidong"></use>
       </svg>
       <svg v-else class="c-loading-icon rg-icon" aria-hidden="true"><use xlink:href="#icon-lianjiezhong"></use></svg>
-      <span class="c-mb-text">自动</span>
+      <span class="c-mb-text">Auto</span>
     </div>
     <div class="c-mb-button" @click="refresh">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-ico_reset"></use></svg>
-      <span class="c-mb-text">刷新</span>
+      <span class="c-mb-text">Refresh</span>
     </div>
     <div class="c-mb-button">
       <svg class="rg-icon" aria-hidden="true"><use xlink:href="#icon-ziyuan"></use></svg>
-      <span class="c-mb-text">下载</span>
+      <span class="c-mb-text">Download</span>
       <div
         :style="{ width: downloadPanelWidth + 'px', 'margin-left': downloadPanelWidth * -1 + 'px' }"
         class="c-mb-child-panel"
