@@ -1005,7 +1005,7 @@ class CITypeRelationManager(object):
 
     @classmethod
     def add(cls, parent, child, relation_type_id, constraint=ConstraintEnum.One2Many,
-            parent_attr_ids=None, child_attr_ids=None):
+            parent_attr_ids=None, child_attr_ids=None, matching_rules=None):
         p = CITypeManager.check_is_existed(parent)
         c = CITypeManager.check_is_existed(child)
 
@@ -1029,6 +1029,7 @@ class CITypeRelationManager(object):
                                      constraint=constraint,
                                      parent_attr_ids=parent_attr_ids,
                                      child_attr_ids=child_attr_ids,
+                                     matching_rules=matching_rules,
                                      filter_none=False)
         else:
             existed = CITypeRelation.create(parent_id=p.id,
@@ -1036,6 +1037,7 @@ class CITypeRelationManager(object):
                                             relation_type_id=relation_type_id,
                                             parent_attr_ids=parent_attr_ids,
                                             child_attr_ids=child_attr_ids,
+                                            matching_rules=matching_rules,
                                             constraint=constraint)
 
             if current_app.config.get("USE_ACL"):
@@ -1049,8 +1051,23 @@ class CITypeRelationManager(object):
                                                     current_user.username,
                                                     ResourceTypeEnum.CI_TYPE_RELATION)
 
-        if ((parent_attr_ids and parent_attr_ids != old_parent_attr_ids) or
-                (child_attr_ids and child_attr_ids != old_child_attr_ids)):
+        old_matching_rules = copy.deepcopy(existed.matching_rules) if existed and existed.matching_rules else None
+        old_parent_attr_ids = old_parent_attr_ids if existed else None
+        old_child_attr_ids = old_child_attr_ids if existed else None
+        
+        # Rebuild relationships if:
+        # 1. Creating new relationship with attribute matching (parent_attr_ids/child_attr_ids)
+        # 2. Updating attribute matching configuration
+        # 3. Updating matching_rules
+        should_rebuild = False
+        if parent_attr_ids and child_attr_ids:
+            # New relationship with attribute matching OR updating attribute matching
+            if not existed or (parent_attr_ids != old_parent_attr_ids or child_attr_ids != old_child_attr_ids):
+                should_rebuild = True
+        if matching_rules and matching_rules != old_matching_rules:
+            should_rebuild = True
+        
+        if should_rebuild:
             from api.tasks.cmdb import rebuild_relation_for_attribute_changed
             rebuild_relation_for_attribute_changed.apply_async(args=(existed.to_dict(), current_user.uid))
 

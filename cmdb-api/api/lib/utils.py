@@ -93,7 +93,14 @@ class RedisHandler(object):
 
     def get(self, key_ids, prefix):
         try:
-            value = self.r.hmget(prefix, key_ids)
+            # hmget requires individual field arguments, not a list
+            # Convert to list if needed and unpack
+            if isinstance(key_ids, (list, tuple)):
+                if not key_ids:
+                    return []
+                value = self.r.hmget(prefix, *key_ids)
+            else:
+                value = self.r.hmget(prefix, key_ids)
         except Exception as e:
             current_app.logger.error("get redis error, {0}".format(str(e)))
             return

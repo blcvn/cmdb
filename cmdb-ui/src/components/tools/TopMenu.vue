@@ -8,12 +8,6 @@
     >
       {{ route.meta.title }}
     </span>
-    <span
-      :class="current === 'chart-demo' ? 'top-menu-selected' : ''"
-      @click="() => handleClick({ name: 'chart-demo' })"
-    >
-      Topology
-    </span>
     <!-- <a-popover v-model="visible" placement="bottom" trigger="click" overlayClassName="top-menu-dropdown">
       <template slot="content">
         <div class="title">
@@ -94,8 +88,6 @@ export default {
           } else {
             this.$router.push('/cmdb/dashboard')
           }
-        } else if (route.name === 'chart-demo') {
-          this.$router.push('/chart-demo/gds')
         } else if (route.name === 'xyz') {
           this.$router.push('/xyz')
         } else {
