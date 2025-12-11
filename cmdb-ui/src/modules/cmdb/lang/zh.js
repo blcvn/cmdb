@@ -7,6 +7,7 @@ const cmdb_zh = {
     menu: {
         views: '视图',
         topologyView: '拓扑视图',
+        tableLayerView: '表格层视图',
         resources: '资源',
         config: '配置',
         backend: '管理',
@@ -28,6 +29,12 @@ const cmdb_zh = {
         scene: '场景',
         dcim: '数据中心',
         serviceTree: '服务树'
+    },
+    tableLayer: {
+        tables: '表格',
+        layer: '层级',
+        name: '名称',
+        ci: 'CI'
     },
     ciType: {
         ciType: '模型',

@@ -1257,14 +1257,16 @@ export default {
           '放大': 'zoom in',
           '缩小': 'zoom out',
           '刷新': 'refresh ',
-          '下载图片': 'download image'
+          '下载图片': 'download image',
+          '表格视图': 'table view'
         }
         const enlangMap = {
           'Full Screen/Exit Full Screen': '全屏/退出全屏',
           'zoom in': '放大',
           'zoom out': '缩小',
           'refresh': '刷新 ',
-          'download image': '下载图片'
+          'download image': '下载图片',
+          'table view': '表格视图'
         }
 
         const toolbarElementArray = Array.from(toolbarElements ?? [])

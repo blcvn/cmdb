@@ -7,6 +7,7 @@ const cmdb_en = {
     menu: {
         views: 'Views',
         topologyView: 'Topology Views',
+        tableLayerView: 'Table Layer View',
         resources: 'Resources',
         config: 'Configuration',
         backend: 'Management',
@@ -28,6 +29,12 @@ const cmdb_en = {
         scene: 'Scene',
         dcim: 'DCIM',
         serviceTree: 'Service Tree'
+    },
+    tableLayer: {
+        tables: 'Tables',
+        layer: 'Layer',
+        name: 'CI Type',
+        ci: 'CI'
     },
     ciType: {
         ciType: 'CIType',

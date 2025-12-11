@@ -7,6 +7,7 @@ const cmdb_vi = {
     menu: {
         views: 'Giao diện',
         topologyView: 'Giao diện topo',
+        tableLayerView: 'Xem lớp bảng',
         resources: 'Tài nguyên',
         config: 'Cấu hình',
         backend: 'Quản lý',
@@ -28,6 +29,12 @@ const cmdb_vi = {
         scene: 'Cảnh',
         dcim: 'DCIM',
         serviceTree: 'Cây dịch vụ'
+    },
+    tableLayer: {
+        tables: 'Bảng',
+        layer: 'Lớp',
+        name: 'Tên',
+        ci: 'CI'
     },
     ciType: {
         ciType: 'CIType',
