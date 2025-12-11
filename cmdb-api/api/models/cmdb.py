@@ -84,6 +84,7 @@ class CITypeRelation(Model):
 
     parent_attr_ids = db.Column(db.JSON)  # [parent_attr_id, ]
     child_attr_ids = db.Column(db.JSON)  # [child_attr_id, ]
+    matching_rules = db.Column(db.JSON)  # [{parent_attr_id, child_attr_id, operator, separator?}, ...]
 
     parent = db.relationship("CIType", primaryjoin="CIType.id==CITypeRelation.parent_id")
     child = db.relationship("CIType", primaryjoin="CIType.id==CITypeRelation.child_id")

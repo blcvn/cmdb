@@ -1,6 +1,5 @@
 // Import các module ngôn ngữ tiếng Việt
 let acl_vi = {}
-let chartDemo_vi = {}
 let cmdb_vi = {}
 let cs_vi = {}
 
@@ -9,12 +8,6 @@ try {
   acl_vi = require('@/modules/acl/lang/vi.js').default || {}
 } catch (e) {
   console.warn('Module ACL tiếng Việt chưa được tạo đầy đủ')
-}
-
-try {
-  chartDemo_vi = require('@/modules/chart-demo/lang/vi.js').default || {}
-} catch (e) {
-  console.warn('Module Chart Demo tiếng Việt chưa được tạo đầy đủ')
 }
 
 try {
@@ -166,7 +159,6 @@ export default {
       }
     },
     ...acl_vi,
-    ...chartDemo_vi,
     ...cmdb_vi,
     ...cs_vi
 }

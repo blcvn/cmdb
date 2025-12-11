@@ -67,12 +67,23 @@ class CITypeRelationView(APIView):
     @has_perm_from_args("parent_id", ResourceTypeEnum.CI, PermEnum.CONFIG, CITypeManager.get_name_by_id)
     @args_required("relation_type_id")
     def post(self, parent_id, child_id):
+        import json
         relation_type_id = request.values.get("relation_type_id")
         constraint = request.values.get("constraint")
         parent_attr_ids = request.values.get("parent_attr_ids")
         child_attr_ids = request.values.get("child_attr_ids")
+        matching_rules = request.values.get("matching_rules")
+        
+        # Parse JSON if matching_rules is provided as string
+        if matching_rules:
+            if isinstance(matching_rules, str):
+                try:
+                    matching_rules = json.loads(matching_rules)
+                except json.JSONDecodeError:
+                    matching_rules = None
+        
         ctr_id = CITypeRelationManager.add(parent_id, child_id, relation_type_id, constraint,
-                                           parent_attr_ids, child_attr_ids)
+                                           parent_attr_ids, child_attr_ids, matching_rules)
 
         return self.jsonify(ctr_id=ctr_id)
 

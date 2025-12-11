@@ -25,6 +25,7 @@ from api.lib.cmdb.const import AttributeDefaultValueEnum
 from api.lib.cmdb.const import CMDB_QUEUE
 from api.lib.cmdb.const import ConstraintEnum
 from api.lib.cmdb.const import ExistPolicy
+from api.lib.cmdb.const import MatchingOperatorEnum
 from api.lib.cmdb.const import OperateType
 from api.lib.cmdb.const import PermEnum
 from api.lib.cmdb.const import REDIS_PREFIX_CI
@@ -1435,6 +1436,70 @@ class CIRelationManager(object):
         for first, second in deleted:
             cls.delete_3(first, second, apply_async=False)
 
+    @staticmethod
+    def _get_matching_rule(matching_rules, parent_attr_id, child_attr_id):
+        """Get matching rule for a pair of attributes"""
+        if not matching_rules:
+            return None
+        for rule in matching_rules:
+            if rule.get('parent_attr_id') == parent_attr_id and rule.get('child_attr_id') == child_attr_id:
+                return rule
+        return None
+
+    @staticmethod
+    def _match_values(parent_value, child_value, operator=None, separator=',', parent_separator=None, child_separator=None):
+        """
+        Match values based on operator
+        :param parent_value: Value from parent CI attribute
+        :param child_value: Value from child CI attribute
+        :param operator: Matching operator (equals, contains, in_list, has_one, compare)
+        :param separator: Default separator for both parent and child (deprecated, use parent_separator/child_separator)
+        :param parent_separator: Separator for parent value (for in_list, has_one operators)
+        :param child_separator: Separator for child value (for in_list, has_one operators)
+        :return: True if values match, False otherwise
+        """
+        if parent_value is None or child_value is None:
+            return False
+
+        # Use specific separators if provided, otherwise fall back to default separator
+        parent_sep = parent_separator if parent_separator is not None else separator
+        child_sep = child_separator if child_separator is not None else separator
+
+        # Default to equals if operator not specified
+        if not operator or operator == MatchingOperatorEnum.EQUALS:
+            return str(parent_value) == str(child_value)
+
+        if operator == MatchingOperatorEnum.CONTAINS:
+            # Parent contains child string
+            parent_str = str(parent_value).lower()
+            child_str = str(child_value).lower()
+            return child_str in parent_str
+
+        if operator == MatchingOperatorEnum.IN_LIST:
+            # Both parent and child are lists, split by respective separators (supports multi-character) and check intersection
+            # Python's split() already supports multi-character separators
+            parent_list = [s.strip() for s in str(parent_value).split(parent_sep) if s.strip()]
+            child_list = [s.strip() for s in str(child_value).split(child_sep) if s.strip()]
+            return bool(set(parent_list) & set(child_list))
+
+        if operator == MatchingOperatorEnum.HAS_ONE:
+            # Parent has one of child values (child is list, separator supports multi-character)
+            parent_str = str(parent_value).strip()
+            # Python's split() already supports multi-character separators
+            child_list = [s.strip() for s in str(child_value).split(child_sep) if s.strip()]
+            return parent_str in child_list
+
+        if operator == MatchingOperatorEnum.COMPARE:
+            # Numeric comparison
+            try:
+                parent_num = float(parent_value)
+                child_num = float(child_value)
+                return parent_num == child_num
+            except (ValueError, TypeError):
+                return False
+
+        return False
+
     @classmethod
     def build_by_attribute(cls, ci_dict):
         type_id = ci_dict['_type']
@@ -1442,15 +1507,36 @@ class CIRelationManager(object):
             CITypeRelation.parent_attr_ids.isnot(None))
         for item in child_items:
             relations = None
-            for parent_attr_id, child_attr_id in zip(item.parent_attr_ids, item.child_attr_ids):
+            matching_rules = item.matching_rules or []
+            for idx, (parent_attr_id, child_attr_id) in enumerate(zip(item.parent_attr_ids, item.child_attr_ids)):
                 _relations = set()
                 parent_attr = AttributeCache.get(parent_attr_id)
                 child_attr = AttributeCache.get(child_attr_id)
-                attr_value = ci_dict.get(parent_attr.name)
-                value_table = TableMap(attr=child_attr).table
-                for child in value_table.get_by(attr_id=child_attr.id, value=attr_value, only_query=True).join(
-                        CI, CI.id == value_table.ci_id).filter(CI.type_id == item.child_id):
-                    _relations.add((ci_dict['_id'], child.ci_id))
+                parent_attr_value = ci_dict.get(parent_attr.name)
+
+                # Get matching rule for this attribute pair
+                rule = cls._get_matching_rule(matching_rules, parent_attr_id, child_attr_id)
+                operator = rule.get('operator') if rule else MatchingOperatorEnum.EQUALS
+                separator = rule.get('separator', ',') if rule else ','
+                parent_separator = rule.get('parent_separator') if rule else None
+                child_separator = rule.get('child_separator') if rule else None
+
+                if operator == MatchingOperatorEnum.EQUALS:
+                    # Original behavior: exact match
+                    value_table = TableMap(attr=child_attr).table
+                    for child in value_table.get_by(attr_id=child_attr.id, value=parent_attr_value, only_query=True).join(
+                            CI, CI.id == value_table.ci_id).filter(CI.type_id == item.child_id):
+                        _relations.add((ci_dict['_id'], child.ci_id))
+                else:
+                    # Advanced matching: need to check all child CIs
+                    value_table = TableMap(attr=child_attr).table
+                    for child in value_table.get_by(attr_id=child_attr.id, only_query=True).join(
+                            CI, CI.id == value_table.ci_id).filter(CI.type_id == item.child_id):
+                        child_attr_value = child.value
+                        if cls._match_values(parent_attr_value, child_attr_value, operator, separator,
+                                           parent_separator, child_separator):
+                            _relations.add((ci_dict['_id'], child.ci_id))
+
                 if relations is None:
                     relations = _relations
                 else:
@@ -1469,15 +1555,36 @@ class CIRelationManager(object):
             CITypeRelation.child_attr_ids.isnot(None))
         for item in parent_items:
             relations = None
-            for parent_attr_id, child_attr_id in zip(item.parent_attr_ids, item.child_attr_ids):
+            matching_rules = item.matching_rules or []
+            for idx, (parent_attr_id, child_attr_id) in enumerate(zip(item.parent_attr_ids, item.child_attr_ids)):
                 _relations = set()
                 parent_attr = AttributeCache.get(parent_attr_id)
                 child_attr = AttributeCache.get(child_attr_id)
-                attr_value = ci_dict.get(child_attr.name)
-                value_table = TableMap(attr=parent_attr).table
-                for parent in value_table.get_by(attr_id=parent_attr.id, value=attr_value, only_query=True).join(
-                        CI, CI.id == value_table.ci_id).filter(CI.type_id == item.parent_id):
-                    _relations.add((parent.ci_id, ci_dict['_id']))
+                child_attr_value = ci_dict.get(child_attr.name)
+
+                # Get matching rule for this attribute pair
+                rule = cls._get_matching_rule(matching_rules, parent_attr_id, child_attr_id)
+                operator = rule.get('operator') if rule else MatchingOperatorEnum.EQUALS
+                separator = rule.get('separator', ',') if rule else ','
+                parent_separator = rule.get('parent_separator') if rule else None
+                child_separator = rule.get('child_separator') if rule else None
+
+                if operator == MatchingOperatorEnum.EQUALS:
+                    # Original behavior: exact match
+                    value_table = TableMap(attr=parent_attr).table
+                    for parent in value_table.get_by(attr_id=parent_attr.id, value=child_attr_value, only_query=True).join(
+                            CI, CI.id == value_table.ci_id).filter(CI.type_id == item.parent_id):
+                        _relations.add((parent.ci_id, ci_dict['_id']))
+                else:
+                    # Advanced matching: need to check all parent CIs
+                    value_table = TableMap(attr=parent_attr).table
+                    for parent in value_table.get_by(attr_id=parent_attr.id, only_query=True).join(
+                            CI, CI.id == value_table.ci_id).filter(CI.type_id == item.parent_id):
+                        parent_attr_value = parent.value
+                        if cls._match_values(parent_attr_value, child_attr_value, operator, separator,
+                                           parent_separator, child_separator):
+                            _relations.add((parent.ci_id, ci_dict['_id']))
+
                 if relations is None:
                     relations = _relations
                 else:
@@ -1495,14 +1602,22 @@ class CIRelationManager(object):
     @classmethod
     def rebuild_all_by_attribute(cls, ci_type_relation, uid):
         relations = None
-        for parent_attr_id, child_attr_id in zip(ci_type_relation['parent_attr_ids'] or [],
-                                                 ci_type_relation['child_attr_ids'] or []):
+        matching_rules = ci_type_relation.get('matching_rules') or []
+        for idx, (parent_attr_id, child_attr_id) in enumerate(zip(ci_type_relation['parent_attr_ids'] or [],
+                                                                   ci_type_relation['child_attr_ids'] or [])):
 
             _relations = set()
             parent_attr = AttributeCache.get(parent_attr_id)
             child_attr = AttributeCache.get(child_attr_id)
             if not parent_attr or not child_attr:
                 continue
+
+            # Get matching rule for this attribute pair
+            rule = cls._get_matching_rule(matching_rules, parent_attr_id, child_attr_id)
+            operator = rule.get('operator') if rule else MatchingOperatorEnum.EQUALS
+            separator = rule.get('separator', ',') if rule else ','
+            parent_separator = rule.get('parent_separator') if rule else None
+            child_separator = rule.get('child_separator') if rule else None
 
             parent_value_table = TableMap(attr=parent_attr).table
             child_value_table = TableMap(attr=child_attr).table
@@ -1512,13 +1627,22 @@ class CIRelationManager(object):
             child_values = child_value_table.get_by(attr_id=child_attr.id, only_query=True).join(
                 CI, CI.id == child_value_table.ci_id).filter(CI.type_id == ci_type_relation['child_id'])
 
-            child_value2ci_ids = {}
-            for child in child_values:
-                child_value2ci_ids.setdefault(child.value, []).append(child.ci_id)
+            if operator == MatchingOperatorEnum.EQUALS:
+                # Original behavior: exact match
+                child_value2ci_ids = {}
+                for child in child_values:
+                    child_value2ci_ids.setdefault(child.value, []).append(child.ci_id)
 
-            for parent in parent_values:
-                for child_ci_id in child_value2ci_ids.get(parent.value, []):
-                    _relations.add((parent.ci_id, child_ci_id))
+                for parent in parent_values:
+                    for child_ci_id in child_value2ci_ids.get(parent.value, []):
+                        _relations.add((parent.ci_id, child_ci_id))
+            else:
+                # Advanced matching: check all combinations
+                for parent in parent_values:
+                    for child in child_values:
+                        if cls._match_values(parent.value, child.value, operator, separator,
+                                           parent_separator, child_separator):
+                            _relations.add((parent.ci_id, child.ci_id))
 
             if relations is None:
                 relations = _relations

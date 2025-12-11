@@ -155,6 +155,13 @@ def register_error_handlers(app):
     def render_error(error):
         """Render error template."""
         import traceback
+        # Log the requested URL for 404 errors to help with debugging
+        if hasattr(error, 'code') and error.code == 404:
+            try:
+                app.logger.error("404 Not Found - Requested URL: %s %s", request.method, request.url)
+            except RuntimeError:
+                # Request context not available
+                app.logger.error("404 Not Found - Request context not available")
         app.logger.error(traceback.format_exc())
         error_code = getattr(error, "code", 500)
         if not str(error_code).isdigit():
