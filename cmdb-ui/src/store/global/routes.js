@@ -21,10 +21,21 @@ async function hasPermission(permission, route) {
           app_id: 'cmdb',
         }).then(res => {
           const { resources } = res
-          const _idx = resources.findIndex(item => item.name === '模型配置')
+          const _idx = resources.findIndex(item => item.name === 'Model_Configuration')
           flag = flag || (_idx > -1)
         })
       }
+      // Big Screen permission check - Currently disabled
+      // if (route.name === 'cmdb_big_screen') {
+      //   await searchPermResourceByRoleId(store.state.user.rid, {
+      //     resource_type_id: 'page',
+      //     app_id: 'cmdb',
+      //   }).then(res => {
+      //     const { resources } = res
+      //     const _idx = resources.findIndex(item => item.name === 'Big_Screen')
+      //     flag = flag || (_idx > -1)
+      //   })
+      // }
       resolve(route.meta.permission.some(item => totalPer.includes(item)) || flag)
     }
     resolve(true)

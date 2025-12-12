@@ -10,6 +10,13 @@ const genCmdbRoutes = async () => {
     children: [
       // preference
       // views
+      // Big Screen - Currently disabled due to missing assets
+      // {
+      //   path: '/cmdb/bigscreen',
+      //   name: 'cmdb_big_screen',
+      //   meta: { title: 'Big Screen', appName: 'cmdb', icon: 'dashboard', selectedIcon: 'dashboard', keepAlive: false, permission: ['cmdb_admin', 'admin'] },
+      //   component: () => import('../views/fullscreen/index.vue')
+      // },
       {
         path: '/cmdb/dashboard',
         name: 'cmdb_dashboard',
@@ -27,6 +34,12 @@ const genCmdbRoutes = async () => {
         name: 'cmdb_table_layer_view',
         meta: { title: 'cmdb.menu.tableLayerView', appName: 'cmdb', icon: 'table', selectedIcon: 'table', keepAlive: false },
         component: () => import('../views/table_layer_view/index.vue')
+      },
+      {
+        path: '/cmdb/topoviews_v2',
+        name: 'cmdb_topology_views_v2',
+        meta: { title: 'Data View', appName: 'cmdb', icon: 'ops-topology_view', selectedIcon: 'ops-topology_view', keepAlive: false },
+        component: () => import('../views/topology_view_v2/index.vue')
       },
       {
         path: '/cmdb/disabled1',

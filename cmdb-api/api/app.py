@@ -16,7 +16,11 @@ from flask import request
 from flask.blueprints import Blueprint
 from flask.cli import click
 from flask.json.provider import DefaultJSONProvider
-from flask_babel.speaklater import LazyString
+try:
+    from flask_babel.speaklater import LazyString
+except ImportError:
+    # Flask-Babel 4.0+ moved LazyString
+    from flask_babel import LazyString
 
 import api.views.entry
 from api.extensions import (bcrypt, babel, cache, celery, cors, db, es, login_manager, migrate, rd)

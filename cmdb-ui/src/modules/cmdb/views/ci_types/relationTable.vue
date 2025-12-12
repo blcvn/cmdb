@@ -151,7 +151,8 @@
                   allowClear
                 >
                   <a-select-option value="equals">Equals</a-select-option>
-                  <a-select-option value="contains">Contains</a-select-option>
+                  <a-select-option value="contains">Contains (parent contains child)</a-select-option>
+                  <a-select-option value="contains_parent">Contains Parent (child contains parent)</a-select-option>
                   <a-select-option value="in_list">In List</a-select-option>
                   <a-select-option value="has_one">Has One</a-select-option>
                   <a-select-option value="compare">Compare</a-select-option>
@@ -336,7 +337,8 @@
                         allowClear
                       >
                         <a-select-option value="equals">Equals (exact match)</a-select-option>
-                        <a-select-option value="contains">Contains</a-select-option>
+                        <a-select-option value="contains">Contains (parent contains child)</a-select-option>
+                        <a-select-option value="contains_parent">Contains Parent (child contains parent)</a-select-option>
                         <a-select-option value="in_list">In List</a-select-option>
                         <a-select-option value="has_one">Has One</a-select-option>
                         <a-select-option value="compare">Compare (numeric)</a-select-option>
