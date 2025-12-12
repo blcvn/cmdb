@@ -121,6 +121,7 @@ class RelationSourceEnum(BaseEnum):
 class MatchingOperatorEnum(BaseEnum):
     EQUALS = "equals"  # Default: exact match
     CONTAINS = "contains"  # Parent contains child string
+    CONTAINS_PARENT = "contains_parent"  # Child contains parent string (child starts with parent)
     IN_LIST = "in_list"  # Parent/child is list, split by separator and compare
     HAS_ONE = "has_one"  # Parent has one of child values
     COMPARE = "compare"  # Numeric comparison

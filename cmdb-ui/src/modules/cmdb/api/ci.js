@@ -59,3 +59,24 @@ export function getCIAdcStatistics() {
     method: 'GET'
   })
 }
+
+// 获取distinct values
+export function getDistinctValues(typeId, attrName) {
+  return axios({
+    url: urlPrefix + `/ci/distinct_values`,
+    method: 'GET',
+    params: {
+      type_id: typeId,
+      attr_name: attrName
+    }
+  })
+}
+
+// Flush CI cache (rebuild cache)
+export function flushCICache(ciId = null) {
+  const url = ciId ? `${urlPrefix}/ci/${ciId}/flush` : `${urlPrefix}/ci/flush`
+  return axios({
+    url: url,
+    method: 'GET'
+  })
+}

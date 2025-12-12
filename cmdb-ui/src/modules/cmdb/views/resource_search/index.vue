@@ -55,6 +55,8 @@
       :data="instanceList"
       :sort-config="{ remote: true, trigger: 'cell' }"
       @sort-change="handleSortCol"
+      @row-click="handleRowClick"
+      @row-dblclick="handleRowDblClick"
       :row-key="true"
       :column-key="true"
       :cell-style="getCellStyle"
@@ -73,6 +75,18 @@
       class="ops-unstripe-table"
       :custom-config="{ storage: true }"
     >
+      <vxe-column
+        v-if="fromCronJob"
+        :title="$t('select') || 'Select'"
+        width="80"
+        fixed="left"
+      >
+        <template #default="{ row }">
+          <a-button type="link" size="small" @click.stop="handleSelectRow(row)">
+            {{ $t('select') || 'Select' }}
+          </a-button>
+        </template>
+      </vxe-column>
       <vxe-column
         v-if="instanceList.length"
         :title="$t('cmdb.ciType.ciType')"
@@ -557,6 +571,35 @@ export default {
       this.loadInstance()
     },
     handleSortCol() {},
+    handleRowClick(params) {
+      // When fromCronJob is true, allow selecting CI by clicking on row
+      if (this.fromCronJob) {
+        const row = params.row || params
+        if (row && row._id) {
+          console.log('Row clicked, emitting selectCI:', row)
+          this.$emit('selectCI', row)
+        } else {
+          console.warn('Invalid row data:', params)
+        }
+      }
+    },
+    handleRowDblClick(params) {
+      // Double click also works for selection
+      if (this.fromCronJob) {
+        const row = params.row || params
+        if (row && row._id) {
+          console.log('Row double-clicked, emitting selectCI:', row)
+          this.$emit('selectCI', row)
+        }
+      }
+    },
+    handleSelectRow(row) {
+      // Explicit select button handler
+      if (this.fromCronJob && row && row._id) {
+        console.log('Select button clicked, emitting selectCI:', row)
+        this.$emit('selectCI', row)
+      }
+    },
     getCellStyle({ row, rowIndex, $rowIndex, column, columnIndex, $columnIndex }) {
       const { property } = column
       const _find = this.allAttributesList.find((attr) => attr.name === property)

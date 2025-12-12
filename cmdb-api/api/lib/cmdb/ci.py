@@ -8,6 +8,7 @@ import redis_lock
 import threading
 from flask import abort
 from flask import current_app
+from flask import has_request_context
 from flask_login import current_user
 from sqlalchemy.orm import aliased
 from werkzeug.exceptions import BadRequest
@@ -1120,7 +1121,7 @@ class CIRelationManager(object):
 
     @classmethod
     def get_children(cls, ci_id, ret_key=RetKey.NAME):
-        second_cis = CIRelation.get_by(first_ci_id=ci_id, to_dict=False)
+        second_cis = CIRelation.get_by(first_ci_id=ci_id, deleted=False, to_dict=False)
         second_ci_ids = (second_ci.second_ci_id for second_ci in second_cis)
         ci_type2ci_ids = dict()
         for ci_id in second_ci_ids:
@@ -1153,18 +1154,104 @@ class CIRelationManager(object):
         return numfound, len(ci_ids), result
 
     @staticmethod
-    def recursive_children(ci_id):
-        result = []
+    def recursive_children(ci_id, max_depth=None, _current_depth=0):
+        """Get all children CIs reachable from ci_id via relationships.
+        Uses BFS to avoid revisiting nodes and find shortest paths.
+        Only includes valid relationships (not deleted, with valid type relation).
+        
+        Args:
+            ci_id: Root CI ID
+            max_depth: Maximum depth to traverse (None = unlimited)
+            _current_depth: Internal use for tracking recursion depth
+        """
+        from collections import deque
+        from api.models.cmdb import CITypeRelation, CI
+        from api.extensions import db
+        
+        result_set = set()  # All found children
+        depth_map = {}  # Map CI ID -> depth from root
+        visited = set()  # Track visited nodes to avoid loops
+        
+        # Cache valid CITypeRelations (not deleted) as a set of (parent_type_id, child_type_id, relation_type_id)
+        valid_type_relations = set(
+            (r.parent_id, r.child_id, r.relation_type_id) for r in 
+            db.session.query(
+                CITypeRelation.parent_id,
+                CITypeRelation.child_id,
+                CITypeRelation.relation_type_id
+            ).filter(
+                CITypeRelation.deleted.is_(False)
+            )
+        )
+        
+        from flask import current_app
+        current_app.logger.info(
+            f"recursive_children: ci_id={ci_id}, cached {len(valid_type_relations)} valid CITypeRelations"
+        )
+        
+        # BFS queue: (ci_id, depth)
+        queue = deque([(ci_id, 0)])
+        visited.add(ci_id)
+        
+        while queue:
+            current_id, current_depth = queue.popleft()
+            
+            # Stop if we exceed max depth
+            if max_depth is not None and current_depth >= max_depth:
+                continue
+            
+            # Optimized query: Join with CI table to get type_ids directly (avoid N+1 queries)
+            from sqlalchemy.orm import aliased
+            ChildCI = aliased(CI)
+            
+            children_query = db.session.query(
+                CIRelation.second_ci_id,
+                CIRelation.relation_type_id,
+                CI.type_id.label('parent_type_id'),
+                ChildCI.type_id.label('child_type_id')
+            ).join(
+                CI, CIRelation.first_ci_id == CI.id
+            ).join(
+                ChildCI, CIRelation.second_ci_id == ChildCI.id
+            ).filter(
+                CIRelation.first_ci_id == current_id,
+                CIRelation.deleted.is_(False)
+            )
+            
+            for child_id, relation_type_id, parent_type_id, child_type_id in children_query:
+                # Skip if CITypeRelation for this combination is deleted
+                if (parent_type_id, child_type_id, relation_type_id) not in valid_type_relations:
+                    continue
+                
+                # Skip if already visited (this ensures shortest path and no loops)
+                if child_id in visited:
+                    continue
+                
+                visited.add(child_id)
+                child_depth = current_depth + 1
+                
+                # Add to result (exclude root)
+                if child_id != ci_id:
+                    result_set.add(child_id)
+                    depth_map[child_id] = child_depth
+                
+                # Add to queue for further exploration
+                queue.append((child_id, child_depth))
+        
+        # Log depth info for debugging
+        if len(result_set) > 10:  # Only log if suspiciously large
+            from flask import current_app
+            if depth_map:
+                max_depth_found = max(depth_map.values())
+                depth_counts = {}
+                for d in depth_map.values():
+                    depth_counts[d] = depth_counts.get(d, 0) + 1
+                current_app.logger.warning(
+                    f"recursive_children: ci_id={ci_id}, found {len(result_set)} children, "
+                    f"max_depth={max_depth_found}, depth_distribution={dict(sorted(depth_counts.items()))}"
+                )
 
-        def _get_children(_id):
-            children = CIRelation.get_by(first_ci_id=_id, to_dict=False)
-            result.extend([i.second_ci_id for i in children])
-            for child in children:
-                _get_children(child.second_ci_id)
-
-        _get_children(ci_id)
-
-        return result
+        return list(result_set)
 
     @staticmethod
     def _sort_handler(sort_by, query_sql):
@@ -1471,9 +1558,17 @@ class CIRelationManager(object):
 
         if operator == MatchingOperatorEnum.CONTAINS:
             # Parent contains child string
-            parent_str = str(parent_value).lower()
-            child_str = str(child_value).lower()
-            return child_str in parent_str
+            # Example: parent="abc-xyz", child="abc" -> True (parent contains child)
+            parent_str = str(parent_value).lower().strip()
+            child_str = str(child_value).lower().strip()
+            return parent_str.startswith(child_str) or child_str in parent_str
+
+        if operator == MatchingOperatorEnum.CONTAINS_PARENT:
+            # Child contains parent string (child starts with parent or parent is substring of child)
+            # Example: parent="gds-prod-ocp02", child="gds-prod-ocp02-jh94w-infra-mk47f" -> True
+            parent_str = str(parent_value).lower().strip()
+            child_str = str(child_value).lower().strip()
+            return child_str.startswith(parent_str) or parent_str in child_str
 
         if operator == MatchingOperatorEnum.IN_LIST:
             # Both parent and child are lists, split by respective separators (supports multi-character) and check intersection
@@ -1660,7 +1755,11 @@ class CIRelationManager(object):
         try:
             db.session.commit()
         except Exception as e:
-            current_app.logger.error(e)
+            if has_request_context():
+                current_app.logger.error(e)
+            else:
+                import logging
+                logging.getLogger(__name__).error(str(e))
             db.session.rollback()
 
         for parent_ci_id, child_ci_id in (relations or []):
@@ -1671,7 +1770,168 @@ class CIRelationManager(object):
                         source=RelationSourceEnum.ATTRIBUTE_VALUES,
                         uid=uid)
             except Exception as e:
-                current_app.logger.error(e)
+                if has_request_context():
+                    current_app.logger.error(e)
+                else:
+                    import logging
+                    logging.getLogger(__name__).error(str(e))
+
+    @classmethod
+    def get_filtered_graph(cls, root_ci_id, filter_rules):
+        """
+        Get filtered CI graph based on filter conditions.
+        
+        :param root_ci_id: Root CI ID (Application CI)
+        :param filter_rules: List of filter rules, each rule is a dict:
+            [
+                {
+                    'type_id': 123,  # CI Type ID to filter
+                    'filters': {     # Attribute filters (AND logic)
+                        'site': ['DC', 'DR', 'TEST'],  # Attribute name: allowed values
+                        'name': ['vm1', 'vm2'],        # Multiple attributes = AND
+                    }
+                },
+                {
+                    'type_id': 456,
+                    'filters': {
+                        'name': ['ocp1', 'ocp2']  # Another CI Type filter
+                    }
+                }
+            ]
+        :return: Dict with filtered nodes and edges:
+            {
+                'nodes': [{'id': ci_id, 'type_id': type_id, ...}, ...],
+                'edges': [{'from': ci_id1, 'to': ci_id2}, ...]
+            }
+        """
+        # Step 1: Get all CI IDs in the graph (recursive)
+        # Only get CIs that are reachable from root via relationships
+        all_ci_ids = set([root_ci_id])
+        children_ids = cls.recursive_children(root_ci_id)
+        all_ci_ids.update(children_ids)
+        
+        current_app.logger.info(f"get_filtered_graph: root_ci_id={root_ci_id}, children_count={len(children_ids)}, total_ci_ids={len(all_ci_ids)}")
+        
+        # Get all CIs with their types
+        ci_dicts = CIManager.get_cis_by_ids(list(map(str, all_ci_ids)))
+        ci_id2ci = {int(ci['_id']): ci for ci in ci_dicts}
+        
+        current_app.logger.info(f"get_filtered_graph: fetched {len(ci_id2ci)} CIs from database")
+        
+        # Step 2: Filter CIs based on filter rules
+        filtered_ci_ids = set()
+        
+        for rule in filter_rules:
+            type_id = rule.get('type_id')
+            filters = rule.get('filters', {})
+            
+            if not type_id or not filters:
+                continue
+            
+            # Find all CIs of this type that match all filter conditions
+            for ci_id, ci in ci_id2ci.items():
+                ci_type_id = ci.get('_type')
+                
+                if ci_type_id != type_id:
+                    continue
+                
+                # Check if CI matches all filter conditions (AND logic)
+                matches_all = True
+                for attr_name, allowed_values in filters.items():
+                    ci_value = ci.get(attr_name)
+                    # Handle list values
+                    if isinstance(ci_value, list):
+                        # Check if any value in CI list matches allowed values
+                        if not any(v in allowed_values for v in ci_value):
+                            matches_all = False
+                            break
+                    else:
+                        # Single value
+                        if ci_value not in allowed_values:
+                            matches_all = False
+                            break
+                
+                if matches_all:
+                    filtered_ci_ids.add(ci_id)
+        
+        # Step 3: Filter CIs based on rules
+        # If no filter rules: return all CIs from step 1 (already only reachable from root)
+        # If has filter rules: exclude CIs of filtered types that don't match
+        
+        if not filter_rules:
+            # No filtering needed, all_ci_ids already contains only reachable CIs
+            valid_ci_ids = all_ci_ids
+            current_app.logger.info(f"get_filtered_graph: no filter rules, returning all {len(valid_ci_ids)} CIs")
+        else:
+            # Get all type_ids that have filter rules
+            filtered_type_ids = {rule.get('type_id') for rule in filter_rules if rule.get('type_id')}
+            
+            # Identify CIs to exclude (CIs of filtered types that don't match)
+            excluded_ci_ids = set()
+            for ci_id, ci in ci_id2ci.items():
+                ci_type_id = ci.get('_type')
+                
+                # Only check CIs of filtered types
+                if ci_type_id in filtered_type_ids:
+                    # If this CI is not in filtered_ci_ids, it didn't match filter
+                    if ci_id not in filtered_ci_ids:
+                        excluded_ci_ids.add(ci_id)
+            
+            # Now rebuild graph without excluded CIs and find reachable CIs
+            # Build parent-to-children map
+            parent_to_children = {}
+            for ci_id in all_ci_ids:
+                if ci_id not in excluded_ci_ids:
+                    child_relations = CIRelation.get_by(first_ci_id=ci_id, deleted=False, to_dict=False)
+                    if child_relations:
+                        valid_children = [rel.second_ci_id for rel in child_relations 
+                                        if rel.second_ci_id not in excluded_ci_ids and rel.second_ci_id in all_ci_ids]
+                        if valid_children:
+                            parent_to_children[ci_id] = valid_children
+            
+            # BFS from root to find all reachable CIs (after excluding filtered CIs)
+            reachable_from_root = {root_ci_id}
+            queue = [root_ci_id]
+            visited = set()
+            
+            while queue:
+                current_id = queue.pop(0)
+                if current_id in visited:
+                    continue
+                visited.add(current_id)
+                
+                children = parent_to_children.get(current_id, [])
+                for child_id in children:
+                    if child_id not in reachable_from_root:
+                        reachable_from_root.add(child_id)
+                        queue.append(child_id)
+            
+            valid_ci_ids = reachable_from_root
+            current_app.logger.info(f"get_filtered_graph: with filters, excluded {len(excluded_ci_ids)} CIs, final count {len(valid_ci_ids)}")
+        
+        # Step 4: Build filtered graph (nodes and edges)
+        filtered_nodes = []
+        filtered_edges = []
+        
+        for ci_id in valid_ci_ids:
+            if ci_id in ci_id2ci:
+                filtered_nodes.append(ci_id2ci[ci_id])
+        
+        # Get edges only between valid CIs
+        for ci_id in valid_ci_ids:
+            relations = CIRelation.get_by(first_ci_id=ci_id, deleted=False, to_dict=False)
+            for rel in relations:
+                if rel.second_ci_id in valid_ci_ids:
+                    filtered_edges.append({
+                        'from': ci_id,
+                        'to': rel.second_ci_id,
+                        'relation_type_id': rel.relation_type_id
+                    })
+        
+        return {
+            'nodes': filtered_nodes,
+            'edges': filtered_edges
+        }
 
 
 class CITriggerManager(object):

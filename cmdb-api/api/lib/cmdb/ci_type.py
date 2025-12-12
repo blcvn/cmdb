@@ -1080,6 +1080,29 @@ class CITypeRelationManager(object):
     def delete(cls, _id):
         ctr = (CITypeRelation.get_by_id(_id) or
                abort(404, ErrFormat.ci_type_relation_not_found.format("id={}".format(_id))))
+        
+        # Cascade delete: Remove all CI relationships of this type
+        from api.models.cmdb import CIRelation
+        ci_relations = CIRelation.get_by(
+            relation_type_id=ctr.relation_type_id,
+            to_dict=False
+        )
+        
+        # Soft delete all related CI relationships
+        for ci_rel in ci_relations:
+            # Only delete if parent/child match the type relation
+            if ci_rel.first_ci and ci_rel.second_ci:
+                if (ci_rel.first_ci.type_id == ctr.parent_id and 
+                    ci_rel.second_ci.type_id == ctr.child_id):
+                    ci_rel.soft_delete(commit=False)
+        
+        db.session.commit()
+        current_app.logger.info(
+            f"Cascade deleted {len([r for r in ci_relations if r.deleted])} CI relationships "
+            f"for CITypeRelation {_id} (parent={ctr.parent_id}, child={ctr.child_id}, relation_type={ctr.relation_type_id})"
+        )
+        
+        # Delete the type relation itself
         ctr.soft_delete()
 
         CITypeHistoryManager.add(CITypeOperateType.DELETE_RELATION, ctr.parent_id,
