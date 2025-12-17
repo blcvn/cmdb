@@ -7,7 +7,7 @@ const cmdb_en = {
     menu: {
         views: 'Views',
         topologyView: 'Topology Views',
-        tableLayerView: 'Table Layer View',
+        graphView: 'Graph Views',
         resources: 'Resources',
         config: 'Configuration',
         backend: 'Management',

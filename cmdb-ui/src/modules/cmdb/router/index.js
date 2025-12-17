@@ -23,10 +23,10 @@ const genCmdbRoutes = async () => {
         component: () => import('../views/topology_view/index.vue')
       },
       {
-        path: '/cmdb/tablelayerview',
-        name: 'cmdb_table_layer_view',
-        meta: { title: 'cmdb.menu.tableLayerView', appName: 'cmdb', icon: 'table', selectedIcon: 'table', keepAlive: false },
-        component: () => import('../views/table_layer_view/index.vue')
+        path: '/cmdb/graphviews',
+        name: 'cmdb_graph_views',
+        meta: { title: 'cmdb.menu.graphView', appName: 'cmdb', icon: 'ops-topology_view', selectedIcon: 'ops-topology_view', keepAlive: false },
+        component: () => import('../views/graph_view/index.vue')
       },
       {
         path: '/cmdb/disabled1',

@@ -7,7 +7,7 @@ const cmdb_vi = {
     menu: {
         views: 'Giao diện',
         topologyView: 'Giao diện topo',
-        tableLayerView: 'Xem lớp bảng',
+        graphView: 'Giao diện đồ thị',
         resources: 'Tài nguyên',
         config: 'Cấu hình',
         backend: 'Quản lý',
