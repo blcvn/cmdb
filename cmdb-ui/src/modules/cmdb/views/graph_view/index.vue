@@ -1,6 +1,81 @@
 <template>
   <div class="graph-view-container">
-    <div class="graph-toolbar">
+    <SplitPane
+      :min="180"
+      :max="300"
+      :paneLengthPixel.sync="paneLengthPixel"
+      appName="cmdb-graph-view"
+      :triggerLength="18"
+      calcBasedParent
+    >
+      <template #one>
+        <div class="graph-left-input-container">
+          <a-input
+            v-model="searchValue"
+            :placeholder="'Search applications...'"
+            class="graph-left-input"
+            @pressEnter="handleSearch"
+          >
+            <a-icon
+              slot="suffix"
+              type="search"
+              :class="['graph-search-icon', searchValue ? 'graph-search-icon-focus' : '']"
+              @click="handleSearch"
+            />
+          </a-input>
+          <a-button @click="handleReset" class="graph-left-reset-btn">{{ $t('reset') }}</a-button>
+        </div>
+        <div class="graph-left">
+          <a-spin :spinning="loadingApps">
+            <div class="graph-left-content">
+              <div
+                v-for="app in applications"
+                :key="app.app_code"
+                :class="`${selectedAppCode === app.app_code ? 'selected' : ''} graph-left-detail`"
+                @click="handleSelectApplication(app)"
+              >
+                <span class="graph-left-detail-icon">
+                  <span class="primary-color">{{ app.app_code[0].toUpperCase() }}</span>
+                </span>
+                <span class="graph-left-detail-title">{{ app.app_code }}</span>
+              </div>
+            </div>
+            <div v-if="!searchValue" class="pagination-container">
+              <a-pagination
+                :showSizeChanger="true"
+                :current="currentPage"
+                size="small"
+                :total="totalApplications"
+                show-quick-jumper
+                :page-size="pageSize"
+                :page-size-options="pageSizeOptions"
+                @showSizeChange="onShowSizeChange"
+                :show-total="
+                  (total, range) =>
+                    $t('pagination.total', {
+                      range0: range[0],
+                      range1: range[1],
+                      total,
+                    })
+                "
+                @change="
+                  (page) => {
+                    currentPage = page
+                  }
+                "
+              >
+                <template slot="buildOptionText" slot-scope="props">
+                  <span v-if="props.value !== '1000'">{{ props.value }}{{ $t('itemsPerPage') }}</span>
+                  <span v-if="props.value === '1000'">{{ $t('cmdb.ci.all') }}</span>
+                </template>
+              </a-pagination>
+            </div>
+          </a-spin>
+        </div>
+      </template>
+      <template #two>
+        <div v-if="selectedAppCode" class="graph-right">
+          <div class="graph-toolbar">
       <a-space>
         <a-button @click="refreshGraph" icon="reload">Refresh</a-button>
         <a-select v-model="selectedLayout" @change="changeLayout" style="width: 150px">
@@ -59,49 +134,72 @@
       </SeeksRelationGraph>
     </div>
 
-    <!-- Node Detail Modal -->
-    <a-modal
-      v-model="detailModalVisible"
-      :title="selectedNode ? selectedNode.text : 'Node Details'"
-      :footer="null"
-      width="600px"
-    >
-      <div v-if="selectedNode" class="node-details">
-        <a-descriptions bordered size="small" :column="1">
-          <a-descriptions-item label="Name">{{ selectedNode.text }}</a-descriptions-item>
-          <a-descriptions-item label="Alias">{{ selectedNode.id }}</a-descriptions-item>
-          <a-descriptions-item label="Layer">
-            <a-tag :color="getLayerColor(selectedNode.data.layer)">{{ selectedNode.data.layer }}</a-tag>
-          </a-descriptions-item>
-          <a-descriptions-item label="Site">
-            <a-tag v-if="selectedNode.data.site" :color="selectedNode.data.site === 'VNPAY' ? 'purple' : 'cyan'">
-              {{ selectedNode.data.site }}
-            </a-tag>
-            <span v-else>-</span>
-          </a-descriptions-item>
-          <a-descriptions-item label="CI Type">{{ selectedNode.data.ci_type.ci_name }}</a-descriptions-item>
-          <a-descriptions-item label="Metadata" v-if="Object.keys(selectedNode.data.metadata || {}).length > 0">
-            <pre>{{ JSON.stringify(selectedNode.data.metadata, null, 2) }}</pre>
-          </a-descriptions-item>
-        </a-descriptions>
-      </div>
-    </a-modal>
+        <!-- Node Detail Modal -->
+        <a-modal
+          v-model="detailModalVisible"
+          :title="selectedNode ? selectedNode.text : 'Node Details'"
+          :footer="null"
+          width="600px"
+        >
+          <div v-if="selectedNode" class="node-details">
+            <a-descriptions bordered size="small" :column="1">
+              <a-descriptions-item label="Name">{{ selectedNode.text }}</a-descriptions-item>
+              <a-descriptions-item label="Alias">{{ selectedNode.id }}</a-descriptions-item>
+              <a-descriptions-item label="Layer">
+                <a-tag :color="getLayerColor(selectedNode.data.layer)">{{ selectedNode.data.layer }}</a-tag>
+              </a-descriptions-item>
+              <a-descriptions-item label="Site">
+                <a-tag v-if="selectedNode.data.site" :color="selectedNode.data.site === 'VNPAY' ? 'purple' : 'cyan'">
+                  {{ selectedNode.data.site }}
+                </a-tag>
+                <span v-else>-</span>
+              </a-descriptions-item>
+              <a-descriptions-item label="CI Type">{{ selectedNode.data.ci_type.ci_name }}</a-descriptions-item>
+              <a-descriptions-item label="Metadata" v-if="Object.keys(selectedNode.data.metadata || {}).length > 0">
+                <pre>{{ JSON.stringify(selectedNode.data.metadata, null, 2) }}</pre>
+              </a-descriptions-item>
+            </a-descriptions>
+          </div>
+        </a-modal>
+        </div>
+        <div v-else class="graph-right-empty">
+          <a-empty :image="emptyImage" description="">
+            <span slot="description">Please select an application from the list</span>
+          </a-empty>
+        </div>
+      </template>
+    </SplitPane>
   </div>
 </template>
 
 <script>
 import SeeksRelationGraph from '@/modules/cmdb/3rd/relation-graph'
-import mockData from './mock.json'
+import { getTopologyGraph } from '@/modules/cmdb/api/topology_graph'
+import { searchCI } from '@/modules/cmdb/api/ci'
+import SplitPane from '@/components/SplitPane'
+import emptyImage from '@/assets/data_empty.png'
+import mockAppsData from './mock.apps.json'
 
 export default {
   name: 'GraphView',
   components: {
-    SeeksRelationGraph
+    SeeksRelationGraph,
+    SplitPane
   },
   data() {
     return {
       loading: false,
+      loadingApps: false,
       selectedLayout: 'tree',
+      emptyImage,
+      paneLengthPixel: 250,
+      applications: [],
+      selectedAppCode: null,
+      searchValue: '',
+      currentPage: 1,
+      pageSizeOptions: ['20', '50', '100', '1000'],
+      pageSize: 50,
+      totalApplications: 0,
       graphOptions: {
         debug: false,
         allowShowMiniToolBar: false,
@@ -129,6 +227,7 @@ export default {
       graphJsonData: {},
       detailModalVisible: false,
       selectedNode: null,
+      mockData: null,
       selectedLayers: ['Application', 'Middleware', 'System', 'Infrastructure', 'Network'],
       availableLayers: ['Application', 'Middleware', 'System', 'Infrastructure', 'Network'],
       selectedSites: ['VNPAY', 'GDS', 'CMC'],
@@ -142,14 +241,102 @@ export default {
       }
     }
   },
+  watch: {
+    currentPage: function(newVal, oldVal) {
+      this.loadApplications(newVal, this.searchValue)
+    }
+  },
   mounted() {
-    this.loadGraphData()
+    // Load applications from API instead of mock data
+    this.loadApplications()
   },
   methods: {
-    loadGraphData() {
+    handleSelectApplication(app) {
+      this.selectedAppCode = app.app_code
+      this.loadGraphData(app.app_code)
+    },
+
+    handleSearch() {
+      // Reset to page 1 when searching
+      this.$nextTick(() => {
+        if (this.currentPage === 1) {
+          this.loadApplications(1, this.searchValue)
+        } else {
+          this.currentPage = 1
+        }
+      })
+    },
+
+    handleReset() {
+      this.searchValue = ''
+      this.$nextTick(() => {
+        if (this.currentPage === 1) {
+          this.loadApplications(1, '')
+        } else {
+          this.currentPage = 1
+        }
+      })
+    },
+
+    async loadApplications(page = 1, searchValue = null) {
+      this.loadingApps = true
+      try {
+        // Build query with optional search value
+        const searchValueToUse = searchValue !== null ? searchValue : this.searchValue
+        let query = '_type:3'
+        if (searchValueToUse && searchValueToUse.trim()) {
+          query += `,*${searchValueToUse.trim()}*`
+        }
+
+        // Call API to get CIs with type 3 (Application)
+        const response = await searchCI({
+          q: query,
+          count: this.pageSize,
+          page: page
+        })
+
+        // Transform response to match expected format
+        // Expected: [{ app_code: 'xxx', ... }, ...]
+        if (response && response.result) {
+          this.applications = response.result.map(ci => ({
+            app_code: ci.app_code || ci.name || ci.unique_name,
+            _id: ci._id,
+            ...ci
+          }))
+
+          // Store total count for pagination
+          this.totalApplications = response.numfound || response.total || 0
+        }
+      } catch (error) {
+        console.error('Error loading applications:', error)
+        this.$message.error('Failed to load applications')
+        // Fallback to mock data on error
+        this.applications = mockAppsData.result || []
+        this.totalApplications = 0
+      } finally {
+        this.loadingApps = false
+      }
+    },
+
+    onShowSizeChange(current, pageSize) {
+      this.pageSize = pageSize
+      if (this.currentPage === 1) {
+        this.loadApplications(1, this.searchValue)
+      } else {
+        this.currentPage = 1
+      }
+    },
+
+    async loadGraphData(app_code) {
       this.loading = true
       try {
+        // Fetch data from API with app_code parameter
+        const response = await getTopologyGraph(app_code)
+        this.mockData = response
+
+        // Now use this.mockData instead of imported mockData
         this.updateGraphWithFilteredData()
+
         this.$nextTick(() => {
           this.loading = false
           this.$message.success('Graph loaded successfully')
@@ -162,7 +349,9 @@ export default {
     },
 
     refreshGraph() {
-      this.loadGraphData()
+      if (this.selectedAppCode) {
+        this.loadGraphData(this.selectedAppCode)
+      }
     },
 
     toggleLayer(layer) {
@@ -190,8 +379,13 @@ export default {
     },
 
     updateGraphWithFilteredData() {
+      // Check if data is loaded
+      if (!this.mockData) {
+        return
+      }
+
       // Filter nodes by selected layers AND selected sites
-      const filteredNodes = mockData.node
+      const filteredNodes = this.mockData.node
         .filter(node => {
           // Check layer filter
           const layerMatch = this.selectedLayers.includes(node.layer)
@@ -220,7 +414,7 @@ export default {
       const visibleNodeIds = new Set(filteredNodes.map(n => n.id))
 
       // Filter edges: only show if both nodes are visible
-      const filteredLinks = mockData.edges
+      const filteredLinks = this.mockData.edges
         .filter(edge => visibleNodeIds.has(edge.from) && visibleNodeIds.has(edge.to))
         .map(edge => ({
           from: edge.from,
@@ -345,6 +539,109 @@ export default {
   display: flex;
   flex-direction: column;
   background: #f0f2f5;
+
+  .graph-left-input-container {
+    margin: 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .graph-left-input {
+    flex: 1;
+    input {
+      background-color: transparent;
+    }
+    /deep/ .ant-input:focus {
+      box-shadow: none;
+    }
+  }
+
+  .graph-left-reset-btn {
+    flex-shrink: 0;
+  }
+
+  .graph-left {
+    width: 100%;
+    height: calc(100% - 64px);
+    overflow: auto;
+    background: #ffffff;
+
+    .graph-left-content {
+      max-height: 100%;
+      overflow: hidden;
+      &:hover {
+        overflow: auto;
+      }
+    }
+
+    .graph-left-detail {
+      padding: 8px 16px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+      align-items: center;
+      margin-bottom: 4px;
+      height: 40px;
+      line-height: 40px;
+      transition: background-color 0.3s;
+
+      .graph-left-detail-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        box-shadow: 0px 1px 2px rgba(47, 84, 235, 0.2);
+        margin-right: 8px;
+        background-color: #e6f7ff;
+        font-weight: 600;
+      }
+
+      .graph-left-detail-title {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 14px;
+      }
+
+      &:hover {
+        background-color: #e6f7ff;
+      }
+
+      &.selected {
+        background-color: #bae7ff;
+        .graph-left-detail-title {
+          font-weight: 600;
+          color: #1890ff;
+        }
+      }
+    }
+
+    .pagination-container {
+      padding: 12px 16px;
+      text-align: center;
+      border-top: 1px solid #f0f0f0;
+      background: #fafafa;
+    }
+  }
+
+  .graph-right {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #f0f2f5;
+  }
+
+  .graph-right-empty {
+    position: absolute;
+    text-align: center;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
 
   .graph-toolbar {
     padding: 16px;
