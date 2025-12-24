@@ -308,6 +308,7 @@ export default {
       detailModalVisible: false,
       selectedNode: null,
       mockData: null,
+      type2meta: {}, // Mapping from ci_alias to icon (similar to topology_view)
       selectedLayers: [],
       availableLayers: [],
       selectedSites: ['VNPAY', 'GDS', 'CMC'],
@@ -471,6 +472,21 @@ export default {
         const response = await getTopologyGraph(app_code)
         this.mockData = response
 
+        // Build type2meta mapping from nodes (similar to topology_view)
+        // Use ci_alias as key since type_id is not available in the response
+        this.type2meta = {}
+        if (response && response.node && Array.isArray(response.node)) {
+          response.node.forEach(node => {
+            if (node.ci_type && node.ci_type.ci_alias && node.ci_type.ci_icon) {
+              // Only include valid icons (exclude "caise-default" and empty strings)
+              const icon = node.ci_type.ci_icon
+              if (icon && icon !== 'caise-default' && icon.trim() !== '') {
+                this.type2meta[node.ci_type.ci_alias] = icon
+              }
+            }
+          })
+        }
+
         // Now use this.mockData instead of imported mockData
         this.updateGraphWithFilteredData()
 
@@ -519,20 +535,25 @@ export default {
           // AND logic: must match both filters
           return layerMatch && siteMatch
         })
-        .map(node => ({
-          id: node.alias,
-          text: node.name,
-          borderColor: this.layerColors[node.layer] || '#cccccc',
-          fontColor: '#333333',
-          color: '#ffffff',
-          data: {
-            layer: node.layer,
-            site: node.site,
-            metadata: node.metadata,
-            ci_type: node.ci_type,
-            icon: node.ci_type?.ci_icon || ''
+        .map(node => {
+          // Look up icon from type2meta using ci_alias (similar to topology_view)
+          const ci_alias = node.ci_type?.ci_alias
+          const icon = ci_alias ? (this.type2meta[ci_alias] || '') : ''
+          return {
+            id: node.alias,
+            text: node.name,
+            borderColor: this.layerColors[node.layer] || '#cccccc',
+            fontColor: '#333333',
+            color: '#ffffff',
+            data: {
+              layer: node.layer,
+              site: node.site,
+              metadata: node.metadata,
+              ci_type: node.ci_type,
+              icon: icon
+            }
           }
-        }))
+        })
 
       // Create set of visible node IDs for fast lookup
       const visibleNodeIds = new Set(filteredNodes.map(n => n.id))
@@ -794,6 +815,21 @@ export default {
           const appCodeToUse = this.selectedInstances || this.selectedAppCode
           const response = await getTopologyGraph(appCodeToUse, null, null)
           this.mockData = response
+
+          // Build type2meta mapping from nodes (similar to loadGraphData)
+          this.type2meta = {}
+          if (response && response.node && Array.isArray(response.node)) {
+            response.node.forEach(node => {
+              if (node.ci_type && node.ci_type.ci_alias && node.ci_type.ci_icon) {
+                // Only include valid icons (exclude "caise-default" and empty strings)
+                const icon = node.ci_type.ci_icon
+                if (icon && icon !== 'caise-default' && icon.trim() !== '') {
+                  this.type2meta[node.ci_type.ci_alias] = icon
+                }
+              }
+            })
+          }
+
           this.updateGraphWithFilteredData()
         } else if (this.selectedAppCode) {
           // Fall back to app_code method

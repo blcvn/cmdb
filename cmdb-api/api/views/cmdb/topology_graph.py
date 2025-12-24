@@ -147,7 +147,7 @@ class TopologyGraphView(APIView):
             "name": name,
             "alias": alias,
             "layer": layer,
-            "site": ci_data.get('data_center'),
+            "site": ci_data.get('site'),
             "metadata": metadata,
             "ci_type": {
                 "ci_name": ci_type.name if ci_type else "Unknown",
