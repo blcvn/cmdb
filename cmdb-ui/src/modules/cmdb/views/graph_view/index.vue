@@ -10,6 +10,15 @@
     >
       <template #one>
         <div class="graph-left-input-container">
+          <a-button
+            type="primary"
+            icon="setting"
+            @click="handleOpenDrawer"
+            class="graph-left-config-btn"
+            style="margin-bottom: 8px; width: 100%"
+          >
+            Configure Graph
+          </a-button>
           <a-input
             v-model="searchValue"
             :placeholder="'Search applications...'"
@@ -76,91 +85,103 @@
       <template #two>
         <div v-if="selectedAppCode" class="graph-right">
           <div class="graph-toolbar">
-      <a-space>
-        <a-button @click="refreshGraph" icon="reload">Refresh</a-button>
-        <a-select v-model="selectedLayout" @change="changeLayout" style="width: 150px">
-          <a-select-option value="tree">Tree Layout</a-select-option>
-          <a-select-option value="center">Center Layout</a-select-option>
-        </a-select>
-        <a-button @click="zoomIn" icon="zoom-in">Zoom In</a-button>
-        <a-button @click="zoomOut" icon="zoom-out">Zoom Out</a-button>
-        <a-button @click="fitView" icon="fullscreen">Fit View</a-button>
-      </a-space>
-      <div class="legend">
-        <a-tag
-          v-for="layer in availableLayers"
-          :key="layer"
-          :color="selectedLayers.includes(layer) ? getLayerColor(layer) : 'default'"
-          :class="{ 'layer-tag': true, 'layer-tag-inactive': !selectedLayers.includes(layer) }"
-          @click="toggleLayer(layer)"
-          style="cursor: pointer"
-        >
-          <a-icon v-if="selectedLayers.includes(layer)" type="check" />
-          {{ layer }}
-        </a-tag>
-        <a-divider type="vertical" />
-        <a-tag
-          v-for="site in availableSites"
-          :key="site"
-          :color="selectedSites.includes(site) ? getSiteColor(site) : 'default'"
-          :class="{ 'site-tag': true, 'site-tag-inactive': !selectedSites.includes(site) }"
-          @click="toggleSite(site)"
-          style="cursor: pointer"
-        >
-          <a-icon v-if="selectedSites.includes(site)" type="check" />
-          {{ site }}
-        </a-tag>
-      </div>
-    </div>
-    <div class="graph-content" v-loading="loading">
-      <SeeksRelationGraph
-        ref="graphRef"
-        :options="graphOptions"
-        @on-node-click="handleNodeClick"
-        @on-line-click="handleLineClick"
-      >
-        <template v-slot:node="{ node }">
-          <div class="custom-node">
-            <div class="node-header" :style="getNodeHeaderStyle(node)">
-              <span class="node-icon">{{ getNodeIcon(node) }}</span>
-              <span class="node-name">{{ node.text }}</span>
+            <a-space>
+              <a-button @click="refreshGraph" icon="reload">Refresh</a-button>
+              <a-select v-model="selectedLayout" @change="changeLayout" style="width: 150px">
+                <a-select-option value="tree">Tree Layout</a-select-option>
+                <a-select-option value="center">Center Layout</a-select-option>
+              </a-select>
+              <a-button @click="zoomIn" icon="zoom-in">Zoom In</a-button>
+              <a-button @click="zoomOut" icon="zoom-out">Zoom Out</a-button>
+              <a-button @click="fitView" icon="fullscreen">Fit View</a-button>
+            </a-space>
+            <div class="legend">
+              <a-select
+                v-model="selectedLayers"
+                mode="multiple"
+                placeholder="Select Layers"
+                style="width: 200px; margin-right: 8px"
+                @change="handleLayerChange"
+              >
+                <a-select-option v-for="layer in availableLayers" :key="layer" :value="layer">
+                  {{ layer }}
+                </a-select-option>
+              </a-select>
+              <a-select
+                v-model="selectedSites"
+                mode="multiple"
+                placeholder="Select Sites"
+                style="width: 200px"
+                @change="handleSiteChange"
+              >
+                <a-select-option v-for="site in availableSites" :key="site" :value="site">
+                  {{ site }}
+                </a-select-option>
+              </a-select>
             </div>
-            <div v-if="node.data.site" class="node-badge" :class="`site-${node.data.site.toLowerCase()}`">
-              {{ node.data.site }}
-            </div>
-            <div class="node-layer">{{ node.data.layer }}</div>
           </div>
-        </template>
-      </SeeksRelationGraph>
-    </div>
+          <div class="graph-content" v-loading="loading">
+            <SeeksRelationGraph
+              ref="graphRef"
+              :options="graphOptions"
+              @on-node-click="handleNodeClick"
+              @on-line-click="handleLineClick"
+            >
+              <template v-slot:node="{ node }">
+                <div class="custom-node">
+                  <div class="node-header" :style="getNodeHeaderStyle(node)">
+                    <template v-if="node.data.icon">
+                      <img
+                        v-if="node.data.icon.split('$$')[2]"
+                        :src="`/api/common-setting/v1/file/${node.data.icon.split('$$')[3]}`"
+                        class="node-icon-image"
+                      />
+                      <ops-icon
+                        v-else
+                        :style="{ color: node.data.icon.split('$$')[1] }"
+                        :type="node.data.icon.split('$$')[0]"
+                        class="node-icon"
+                      />
+                    </template>
+                    <span v-else class="node-icon-fallback">{{ node.text[0].toUpperCase() }}</span>
+                    <span class="node-name">{{ node.text }}</span>
+                  </div>
+                  <div v-if="node.data.site" class="node-badge" :class="`site-${node.data.site.toLowerCase()}`">
+                    {{ node.data.site }}
+                  </div>
+                  <div class="node-layer">{{ node.data.layer }}</div>
+                </div>
+              </template>
+            </SeeksRelationGraph>
+          </div>
 
-        <!-- Node Detail Modal -->
-        <a-modal
-          v-model="detailModalVisible"
-          :title="selectedNode ? selectedNode.text : 'Node Details'"
-          :footer="null"
-          width="600px"
-        >
-          <div v-if="selectedNode" class="node-details">
-            <a-descriptions bordered size="small" :column="1">
-              <a-descriptions-item label="Name">{{ selectedNode.text }}</a-descriptions-item>
-              <a-descriptions-item label="Alias">{{ selectedNode.id }}</a-descriptions-item>
-              <a-descriptions-item label="Layer">
-                <a-tag :color="getLayerColor(selectedNode.data.layer)">{{ selectedNode.data.layer }}</a-tag>
-              </a-descriptions-item>
-              <a-descriptions-item label="Site">
-                <a-tag v-if="selectedNode.data.site" :color="selectedNode.data.site === 'VNPAY' ? 'purple' : 'cyan'">
-                  {{ selectedNode.data.site }}
-                </a-tag>
-                <span v-else>-</span>
-              </a-descriptions-item>
-              <a-descriptions-item label="CI Type">{{ selectedNode.data.ci_type.ci_name }}</a-descriptions-item>
-              <a-descriptions-item label="Metadata" v-if="Object.keys(selectedNode.data.metadata || {}).length > 0">
-                <pre>{{ JSON.stringify(selectedNode.data.metadata, null, 2) }}</pre>
-              </a-descriptions-item>
-            </a-descriptions>
-          </div>
-        </a-modal>
+          <!-- Node Detail Modal -->
+          <a-modal
+            v-model="detailModalVisible"
+            :title="selectedNode ? selectedNode.text : 'Node Details'"
+            :footer="null"
+            width="600px"
+          >
+            <div v-if="selectedNode" class="node-details">
+              <a-descriptions bordered size="small" :column="1">
+                <a-descriptions-item label="Name">{{ selectedNode.text }}</a-descriptions-item>
+                <a-descriptions-item label="Alias">{{ selectedNode.id }}</a-descriptions-item>
+                <a-descriptions-item label="Layer">
+                  <a-tag :color="getLayerColor(selectedNode.data.layer)">{{ selectedNode.data.layer }}</a-tag>
+                </a-descriptions-item>
+                <a-descriptions-item label="Site">
+                  <a-tag v-if="selectedNode.data.site" :color="selectedNode.data.site === 'VNPAY' ? 'purple' : 'cyan'">
+                    {{ selectedNode.data.site }}
+                  </a-tag>
+                  <span v-else>-</span>
+                </a-descriptions-item>
+                <a-descriptions-item label="CI Type">{{ selectedNode.data.ci_type.ci_name }}</a-descriptions-item>
+                <a-descriptions-item label="Metadata" v-if="Object.keys(selectedNode.data.metadata || {}).length > 0">
+                  <pre>{{ JSON.stringify(selectedNode.data.metadata, null, 2) }}</pre>
+                </a-descriptions-item>
+              </a-descriptions>
+            </div>
+          </a-modal>
         </div>
         <div v-else class="graph-right-empty">
           <a-empty :image="emptyImage" description="">
@@ -169,6 +190,43 @@
         </div>
       </template>
     </SplitPane>
+    <CustomDrawer
+      :closable="false"
+      :title="drawerTitle"
+      :visible="drawerVisible"
+      @close="onClose"
+      placement="right"
+      width="900px"
+      :destroyOnClose="true"
+      :bodyStyle="{ height: 'calc(100vh - 108px)' }"
+    >
+      <a-form
+        :form="form"
+        :layout="formLayout"
+        :label-col="formItemLayout.labelCol"
+        :wrapper-col="formItemLayout.wrapperCol"
+      >
+        <a-form-item :label="$t('cmdb.topo.path')" prop="path">
+          <div :style="{ height: '250px', border: '1px solid #e4e7ed' }">
+            <SeeksRelationGraph ref="ciTypeRelationGraph" :options="ciTypeRelationGraphOptions">
+              <div slot="node" slot-scope="{ node }" :style="{ lineHeight: '20px' }">
+                <a-checkbox
+                  :checked="checkedNodes.includes(node.id)"
+                  @change="(e) => checked(e, node)"
+                ></a-checkbox>
+                <span :style="{ marginLeft: '5px' }">{{ node.text }}</span>
+              </div>
+            </SeeksRelationGraph>
+          </div>
+        </a-form-item>
+        <div class="custom-drawer-bottom-action">
+          <a-button @click="handleApplyFilter" :loading="loading" type="primary" style="margin-right: 1rem">{{
+            $t('apply')
+          }}</a-button>
+          <a-button @click="onClose">{{ $t('cancel') }}</a-button>
+        </div>
+      </a-form>
+    </CustomDrawer>
   </div>
 </template>
 
@@ -177,6 +235,11 @@ import SeeksRelationGraph from '@/modules/cmdb/3rd/relation-graph'
 import { getTopologyGraph } from '@/modules/cmdb/api/topology_graph'
 import { searchCI } from '@/modules/cmdb/api/ci'
 import SplitPane from '@/components/SplitPane'
+import CustomDrawer from '@/components/CustomDrawer'
+import CMDBExprDrawer from '@/components/CMDBExprDrawer'
+import CMDBTypeSelectAntd from '@/modules/cmdb/components/cmdbTypeSelect/cmdbTypeSelectAntd'
+import { getRelationsByTypeId } from '@/modules/cmdb/api/topology'
+import { getCITypeGroups } from '@/modules/cmdb/api/ciTypeGroup'
 import emptyImage from '@/assets/data_empty.png'
 import mockAppsData from './mock.apps.json'
 
@@ -184,7 +247,10 @@ export default {
   name: 'GraphView',
   components: {
     SeeksRelationGraph,
-    SplitPane
+    SplitPane,
+    CustomDrawer,
+    CMDBExprDrawer,
+    CMDBTypeSelectAntd
   },
   data() {
     return {
@@ -224,12 +290,26 @@ export default {
           }
         ]
       },
+      ciTypeRelationGraphOptions: {
+        debug: false,
+        allowShowMiniToolBar: false,
+        allowShowMiniNameFilter: false,
+        defaultFocusRootNode: false,
+        defaultNodeColor: 'rgba(230, 247, 255, 1)',
+        defaultNodeFontColor: 'rgba(33, 32, 32, 1)',
+        layouts: [
+          {
+            layoutName: 'tree',
+            layoutClassName: 'seeks-layout-center',
+          },
+        ],
+      },
       graphJsonData: {},
       detailModalVisible: false,
       selectedNode: null,
       mockData: null,
-      selectedLayers: ['Application', 'Middleware', 'System', 'Infrastructure', 'Network'],
-      availableLayers: ['Application', 'Middleware', 'System', 'Infrastructure', 'Network'],
+      selectedLayers: [],
+      availableLayers: [],
       selectedSites: ['VNPAY', 'GDS', 'CMC'],
       availableSites: ['VNPAY', 'GDS', 'CMC'],
       layerColors: {
@@ -238,8 +318,31 @@ export default {
         'System': '#fa8c16',
         'Infrastructure': '#f5222d',
         'Network': '#722ed1'
-      }
+      },
+      // Drawer state
+      drawerVisible: false,
+      drawerTitle: 'Configure Graph',
+      form: this.$form.createForm(this),
+      formLayout: 'horizontal',
+      selectedCIType: null,
+      selectedInstances: '',
+      selectedPath: {},
+      CITypeId: null,
+      checkedNodes: [],
+      nodes: [],
+      ciTypeRelationGraphData: null
     }
+  },
+  computed: {
+    formItemLayout() {
+      const { formLayout } = this
+      return formLayout === 'horizontal'
+        ? {
+            labelCol: { span: 5 },
+            wrapperCol: { span: 16 },
+          }
+        : {}
+    },
   },
   watch: {
     currentPage: function(newVal, oldVal) {
@@ -247,10 +350,44 @@ export default {
     }
   },
   mounted() {
-    // Load applications from API instead of mock data
-    this.loadApplications()
+    // Load layers from API first, then load applications
+    this.loadLayersFromAPI().then(() => {
+      this.loadApplications()
+    })
   },
   methods: {
+    async loadLayersFromAPI() {
+      try {
+        // Use getCITypeGroups to get all groups regardless of subscription
+        const response = await getCITypeGroups({ need_other: true })
+        if (response && Array.isArray(response)) {
+          // Extract layer names from group[].name
+          const layers = response
+            .map(group => group.name)
+            .filter(name => name) // Filter out empty names
+
+          this.availableLayers = layers
+
+          // Set selectedLayers to all layers by default
+          this.selectedLayers = [...layers]
+
+          // Extend layerColors for new layers that don't have colors yet
+          const defaultColors = ['#1890ff', '#52c41a', '#fa8c16', '#f5222d', '#722ed1', '#13c2c2', '#eb2f96', '#faad14']
+          layers.forEach((layer, index) => {
+            if (!this.layerColors[layer]) {
+              // Assign a color from defaultColors, cycling if needed
+              this.layerColors[layer] = defaultColors[index % defaultColors.length]
+            }
+          })
+        }
+      } catch (error) {
+        console.error('Error loading layers from API:', error)
+        // Fallback to default layers if API fails
+        this.availableLayers = ['Application', 'Middleware', 'System', 'Infrastructure', 'Network']
+        this.selectedLayers = ['Application', 'Middleware', 'System', 'Infrastructure', 'Network']
+      }
+    },
+
     handleSelectApplication(app) {
       this.selectedAppCode = app.app_code
       this.loadGraphData(app.app_code)
@@ -354,27 +491,13 @@ export default {
       }
     },
 
-    toggleLayer(layer) {
-      const index = this.selectedLayers.indexOf(layer)
-      if (index > -1) {
-        // Remove layer (hide it)
-        this.selectedLayers.splice(index, 1)
-      } else {
-        // Add layer (show it)
-        this.selectedLayers.push(layer)
-      }
+    handleLayerChange(value) {
+      this.selectedLayers = value
       this.updateGraphWithFilteredData()
     },
 
-    toggleSite(site) {
-      const index = this.selectedSites.indexOf(site)
-      if (index > -1) {
-        // Remove site (hide it)
-        this.selectedSites.splice(index, 1)
-      } else {
-        // Add site (show it)
-        this.selectedSites.push(site)
-      }
+    handleSiteChange(value) {
+      this.selectedSites = value
       this.updateGraphWithFilteredData()
     },
 
@@ -406,7 +529,8 @@ export default {
             layer: node.layer,
             site: node.site,
             metadata: node.metadata,
-            ci_type: node.ci_type
+            ci_type: node.ci_type,
+            icon: node.ci_type?.ci_icon || ''
           }
         }))
 
@@ -499,17 +623,6 @@ export default {
       }
     },
 
-    getNodeIcon(node) {
-      const iconMap = {
-        'Application': '📱',
-        'Middleware': '⚙️',
-        'System': '🖥️',
-        'Infrastructure': '🌐',
-        'Network': '🔗'
-      }
-      return iconMap[node.data.layer] || '📦'
-    },
-
     getLayerColor(layer) {
       const colorMap = {
         'Application': 'blue',
@@ -528,6 +641,179 @@ export default {
         'CMC': 'geekblue'
       }
       return colorMap[site] || 'default'
+    },
+    // Drawer methods
+    handleOpenDrawer() {
+      if (!this.selectedAppCode) {
+        this.$message.warning('Please select an application first')
+        return
+      }
+      this.drawerTitle = 'Configure Graph'
+      this.drawerVisible = true
+
+      // Set default values: Application type (3) and selected app_code
+      this.selectedCIType = 3 // Application type
+      this.selectedInstances = this.selectedAppCode
+      this.CITypeId = 3
+
+      // Reset form and set default values
+      this.form.resetFields()
+      this.$nextTick(() => {
+        this.form.setFieldsValue({
+          central_node_type: 3,
+          central_node_instances: this.selectedAppCode
+        })
+        // Load relations for Application type
+        this.checkedNodes = ['3'] // Application type ID
+        this.getRelationsByTypeId(3)
+      })
+
+      this.selectedPath = {}
+    },
+    onClose() {
+      this.form.resetFields()
+      this.drawerVisible = false
+      this.checkedNodes = []
+      this.nodes = []
+      this.CITypeId = null
+    },
+    handleOpenCmdb() {
+      this.$refs.cmdbDrawer.open()
+    },
+    copySuccess(text) {
+      this.form.setFieldsValue({ 'central_node_instances': `${text}` })
+    },
+    async CITypeChange(value) {
+      this.CITypeId = value
+      this.selectedCIType = value
+      this.form.setFieldsValue({
+        central_node_instances: ''
+      })
+      this.checkedNodes = [String(value)]
+      await this.getRelationsByTypeId(value)
+      if (this.$refs.cmdbDrawer.$refs.resourceSearch) {
+        this.$refs.cmdbDrawer.$refs.resourceSearch.typeId = value
+        await this.$refs.cmdbDrawer.$refs.resourceSearch.getCIType(value)
+        await this.$refs.cmdbDrawer.$refs.resourceSearch.getAttrsByType(value)
+        this.$refs.cmdbDrawer.$refs.resourceSearch.$refs['search'].currenCiType = [value]
+        this.$refs.cmdbDrawer.$refs.resourceSearch.loadInstance()
+      }
+    },
+    async getRelationsByTypeId(typeId) {
+      try {
+        const res = await getRelationsByTypeId(typeId)
+        const nodes = []
+        const links = []
+        this.nodes = res.nodes
+        res.edges.forEach(item => {
+          links.push({
+            from: `${item.from_id}`,
+            to: `${item.to_id}`,
+            text: `${item.text}`,
+            disableDefaultClickEffect: true,
+          })
+        })
+        res.nodes.forEach(item => {
+          nodes.push({
+            id: `${item.id}`,
+            name: item.alias || item.name,
+            text: item.alias || item.name,
+            nodeShape: 1,
+            borderWidth: -1,
+            disableDefaultClickEffect: true,
+          })
+        })
+        const _graphJsonData = {
+          rootId: `${typeId}`,
+          nodes,
+          links,
+        }
+        this.ciTypeRelationGraphData = _graphJsonData
+        if (!nodes.length) {
+          this.$message.error(this.$t('cmdb.topo.noData'))
+          return
+        }
+        this.$nextTick(() => {
+          if (this.$refs.ciTypeRelationGraph) {
+            this.$refs.ciTypeRelationGraph.setJsonData(_graphJsonData, (res) => {
+            })
+          }
+        })
+      } catch (error) {
+        console.error('Error loading relations:', error)
+        this.$message.error('Failed to load CI type relations')
+      }
+    },
+    checked(e, node) {
+      if (e.target.checked) {
+        if (this.checkedNodes.findIndex(i => i === node.id) === -1) {
+          this.checkedNodes.push(node.id)
+        }
+      } else {
+        this.checkedNodes.splice(this.checkedNodes.findIndex(i => i === node.id), 1)
+      }
+    },
+    wrapPath() {
+      const path = {}
+      this.checkedNodes.forEach(nodeId => {
+        const _nodes = this.nodes.filter(i => String(i.id) === nodeId)
+        _nodes.forEach(_node => {
+          const levels = _node.level || [0]
+          levels.forEach(level => {
+            if (level in path) {
+              path[level].push(nodeId)
+            } else {
+              path[level] = [nodeId]
+            }
+          })
+        })
+      })
+      return path
+    },
+    async handleApplyFilter() {
+      // Use default values: Application type (3) and selected app_code
+      this.selectedCIType = 3 // Application type
+      this.selectedInstances = this.selectedAppCode
+      this.selectedPath = this.wrapPath()
+
+      // Close drawer
+      this.drawerVisible = false
+
+      // Load graph with new filters
+      await this.loadGraphDataWithFilters()
+    },
+    async loadGraphDataWithFilters() {
+      this.loading = true
+      try {
+        // If we have CI type and instances, use them to load graph
+        // Otherwise, fall back to app_code method
+        if (this.selectedCIType && this.selectedInstances) {
+          // TODO: Update API call to support CI type and instances filtering
+          // For now, we'll use the existing API but with modified parameters
+          // Use selectedInstances (which contains app_code) or fallback to selectedAppCode
+          const appCodeToUse = this.selectedInstances || this.selectedAppCode
+          const response = await getTopologyGraph(appCodeToUse, null, null)
+          this.mockData = response
+          this.updateGraphWithFilteredData()
+        } else if (this.selectedAppCode) {
+          // Fall back to app_code method
+          await this.loadGraphData(this.selectedAppCode)
+          return
+        } else {
+          this.$message.warning('Please configure graph filters or select an application')
+          this.loading = false
+          return
+        }
+
+        this.$nextTick(() => {
+          this.loading = false
+          this.$message.success('Graph loaded successfully')
+        })
+      } catch (error) {
+        this.loading = false
+        this.$message.error('Failed to load graph data')
+        console.error('Error loading graph:', error)
+      }
     }
   }
 }
@@ -543,8 +829,9 @@ export default {
   .graph-left-input-container {
     margin: 16px;
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
   }
 
   .graph-left-input {
@@ -656,33 +943,6 @@ export default {
       align-items: center;
       gap: 8px;
 
-      .layer-tag {
-        transition: all 0.3s ease;
-        user-select: none;
-
-        &:hover {
-          transform: scale(1.05);
-        }
-
-        &.layer-tag-inactive {
-          opacity: 0.4;
-          text-decoration: line-through;
-        }
-      }
-
-      .site-tag {
-        transition: all 0.3s ease;
-        user-select: none;
-
-        &:hover {
-          transform: scale(1.05);
-        }
-
-        &.site-tag-inactive {
-          opacity: 0.4;
-          text-decoration: line-through;
-        }
-      }
     }
   }
 
@@ -714,6 +974,26 @@ export default {
 
     .node-icon {
       font-size: 20px;
+    }
+
+    .node-icon-image {
+      max-height: 20px;
+      max-width: 20px;
+      object-fit: contain;
+    }
+
+    .node-icon-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      box-shadow: 0px 1px 2px rgba(47, 84, 235, 0.2);
+      background-color: #e6f7ff;
+      font-weight: 600;
+      font-size: 14px;
+      color: #1890ff;
     }
 
     .node-name {
@@ -778,5 +1058,16 @@ export default {
       filter: brightness(0.95);
     }
   }
+}
+
+.custom-drawer-bottom-action {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  background: #fff;
+  border-top: 1px solid #e8e8e8;
+  text-align: right;
 }
 </style>

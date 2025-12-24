@@ -7,7 +7,8 @@ from api.lib.cmdb.search.ci import search as ci_search
 from api.lib.cmdb.const import RetKey
 from api.lib.cmdb.cache import AttributeCache, CITypeCache, RelationTypeCache
 from api.lib.cmdb.ci import CIManager
-from api.models.cmdb import CIRelation
+from api.models.cmdb import CIRelation, CITypeGroup, CITypeGroupItem
+from api.extensions import db
 from api.lib.cmdb.search.ci_relation.search import Search
 from api.lib.cmdb.ci_type import CITypeRelationManager
 from api.extensions import rd
@@ -20,32 +21,66 @@ DEFAULT_CACHE_TTL = 1200  # Cache TTL in seconds (20 minutes)
 
 class TopologyGraphView(APIView):
     url_prefix = ("/topology/graph",)
+    
+    # Cache for layer mapping to avoid repeated database queries
+    _layer_mapping_cache = None
+
+    def _build_layer_mapping(self):
+        """
+        Build mapping from CI type name to group name (layer)
+        
+        :return: Dictionary mapping ci_type.name to group.name
+        """
+        layer_mapping = {}
+        
+        # Query all CITypeGroup and CITypeGroupItem relationships
+        query_result = db.session.query(CITypeGroupItem, CITypeGroup).join(
+            CITypeGroup, CITypeGroup.id == CITypeGroupItem.group_id
+        ).filter(
+            CITypeGroup.deleted.is_(False)
+        ).filter(
+            CITypeGroupItem.deleted.is_(False)
+        ).all()
+        
+        # Build mapping: ci_type.name -> group.name
+        for item, group in query_result:
+            ci_type = CITypeCache.get(item.type_id)
+            if ci_type:
+                # Map by ci_type.name (not alias) as per user requirement
+                layer_mapping[ci_type.name] = group.name
+        
+        return layer_mapping
+
+    def _get_layer_mapping(self):
+        """
+        Get layer mapping, using cache if available
+        
+        :return: Dictionary mapping ci_type.name to group.name
+        """
+        if TopologyGraphView._layer_mapping_cache is None:
+            TopologyGraphView._layer_mapping_cache = self._build_layer_mapping()
+        return TopologyGraphView._layer_mapping_cache
 
     def _get_layer_from_ci_type(self, ci_type_alias):
         """
-        Map CI type alias to topology layer
+        Map CI type alias to topology layer using dynamic mapping from CITypeGroup
         
         :param ci_type_alias: CI type alias string
-        :return: Layer name (Application, Middleware, System, Infrastructure, Network)
+        :return: Layer name (from group name, or 'Application' as fallback)
         """
-        layer_mapping = {
-            'app': 'Application',
-            'application': 'Application',
-            'application_service': 'Application',
-            'app_service': 'Application',
-            'queue': 'Middleware',
-            'cache': 'Middleware',
-            'database': 'Middleware',
-            'middleware': 'Middleware',
-            'namespace': 'System',
-            'cluster': 'System',
-            'virtual_machine': 'System',
-            'vm': 'System',
-            'ip_address': 'Infrastructure',
-            'ip': 'Infrastructure',
-            'network': 'Network',
-        }
-        return layer_mapping.get(ci_type_alias.lower(), 'Application')
+        # Get CI type by alias (CITypeCache.get can handle alias, name, or id)
+        ci_type = CITypeCache.get(ci_type_alias) if ci_type_alias else None
+        
+        if not ci_type:
+            return 'Application'  # Default fallback
+        
+        # Get dynamic layer mapping
+        layer_mapping = self._get_layer_mapping()
+        
+        # Map by ci_type.name (as per user requirement: ci_types[].name maps to group.name)
+        layer = layer_mapping.get(ci_type.name, 'Application')
+        
+        return layer
 
     def _transform_ci_to_node(self, ci_data):
         """
