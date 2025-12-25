@@ -100,7 +100,9 @@
                 v-model="selectedLayers"
                 mode="multiple"
                 placeholder="Select Layers"
-                style="width: 200px; margin-right: 8px"
+                :maxTagCount="2"
+                :maxTagPlaceholder="(omittedValues) => `+ ${omittedValues.length} more`"
+                style="width: 180px; margin-right: 8px"
                 @change="handleLayerChange"
               >
                 <a-select-option v-for="layer in availableLayers" :key="layer" :value="layer">
@@ -111,7 +113,9 @@
                 v-model="selectedSites"
                 mode="multiple"
                 placeholder="Select Sites"
-                style="width: 200px"
+                :maxTagCount="2"
+                :maxTagPlaceholder="(omittedValues) => `+ ${omittedValues.length} more`"
+                style="width: 180px"
                 @change="handleSiteChange"
               >
                 <a-select-option v-for="site in availableSites" :key="site" :value="site">
@@ -120,7 +124,7 @@
               </a-select>
             </div>
           </div>
-          <div class="graph-content" v-loading="loading">
+          <div class="graph-content" ref="graphContent" v-loading="loading">
             <SeeksRelationGraph
               ref="graphRef"
               :options="graphOptions"
@@ -128,7 +132,13 @@
               @on-line-click="handleLineClick"
             >
               <template v-slot:node="{ node }">
-                <div class="custom-node">
+                <div
+                  class="custom-node"
+                  @mousedown="handleNodeMouseDown(node, $event)"
+                  @mousemove="handleNodeMouseMove($event)"
+                  @mouseup="handleNodeMouseUp(node, $event)"
+                  @click.stop="handleCustomNodeClick(node, $event)"
+                >
                   <div class="node-header" :style="getNodeHeaderStyle(node)">
                     <template v-if="node.data.icon">
                       <img
@@ -149,10 +159,48 @@
                   <div v-if="node.data.site" class="node-badge" :class="`site-${node.data.site.toLowerCase()}`">
                     {{ node.data.site }}
                   </div>
-                  <div class="node-layer">{{ node.data.layer }}</div>
+                  <div class="node-layer">{{ (node.data.ci_type && node.data.ci_type.ci_alias) || '' }}</div>
                 </div>
               </template>
             </SeeksRelationGraph>
+            <!-- Layer Legend -->
+            <div v-if="layerLegend.length > 0" class="layer-legend">
+              <div class="legend-header">
+                <span class="legend-title">Layers</span>
+              </div>
+              <div class="legend-items">
+                <div
+                  v-for="layer in layerLegend"
+                  :key="layer.name"
+                  class="legend-item"
+                >
+                  <span
+                    class="legend-color"
+                    :style="{ backgroundColor: layer.color }"
+                  ></span>
+                  <span class="legend-text">{{ layer.name }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Node Tips Panel (hover tooltip) -->
+            <div
+              v-if="isShowNodeTipsPanel && (currentNodeValues || errorMessageShow || isLoadingNodeData)"
+              :style="nodeTipsPosition"
+              class="node-tips"
+            >
+              <a-spin v-if="isLoadingNodeData && !currentNodeValues && !errorMessageShow" />
+              <a-descriptions
+                v-else-if="currentNodeValues && currentNodeAttributes.length"
+                bordered
+                size="small"
+                :column="{ xxl: 1, xl: 1, lg: 1, md: 1, sm: 1, xs: 1 }"
+              >
+                <a-descriptions-item :label="attr.alias" v-for="attr in currentNodeAttributes" :key="attr.name">
+                  {{ currentNodeValues[attr.name] }}
+                </a-descriptions-item>
+              </a-descriptions>
+              <span v-if="errorMessageShow" style="color: red">{{ errorMessage }}</span>
+            </div>
           </div>
 
           <!-- Node Detail Modal -->
@@ -212,6 +260,7 @@
               <div slot="node" slot-scope="{ node }" :style="{ lineHeight: '20px' }">
                 <a-checkbox
                   :checked="checkedNodes.includes(node.id)"
+                  :disabled="node.id === '3'"
                   @change="(e) => checked(e, node)"
                 ></a-checkbox>
                 <span :style="{ marginLeft: '5px' }">{{ node.text }}</span>
@@ -227,6 +276,7 @@
         </div>
       </a-form>
     </CustomDrawer>
+    <CiDetailDrawer ref="ciDetailDrawer" :typeId="selectedNodeTypeId" />
   </div>
 </template>
 
@@ -240,6 +290,7 @@ import CMDBExprDrawer from '@/components/CMDBExprDrawer'
 import CMDBTypeSelectAntd from '@/modules/cmdb/components/cmdbTypeSelect/cmdbTypeSelectAntd'
 import { getRelationsByTypeId } from '@/modules/cmdb/api/topology'
 import { getCITypeGroups } from '@/modules/cmdb/api/ciTypeGroup'
+import CiDetailDrawer from '@/modules/cmdb/views/ci/modules/ciDetailDrawer.vue'
 import emptyImage from '@/assets/data_empty.png'
 import mockAppsData from './mock.apps.json'
 
@@ -250,7 +301,8 @@ export default {
     SplitPane,
     CustomDrawer,
     CMDBExprDrawer,
-    CMDBTypeSelectAntd
+    CMDBTypeSelectAntd,
+    CiDetailDrawer
   },
   data() {
     return {
@@ -309,6 +361,17 @@ export default {
       selectedNode: null,
       mockData: null,
       type2meta: {}, // Mapping from ci_alias to icon (similar to topology_view)
+      isShowNodeTipsPanel: false, // Control visibility of tooltip panel
+      nodeTipsPosition: {}, // Position of tooltip panel
+      currentNodeMetadata: null, // Current node's metadata to display
+      currentNode: {}, // Current node object
+      currentNodeAttributes: [], // Current node's attributes
+      currentNodeValues: {}, // Current node's values
+      errorMessageShow: false, // Show error message
+      errorMessage: '', // Error message text
+      nodeAliasToData: {}, // Mapping from node alias to original node data
+      isLoadingNodeData: false, // Loading state for node data
+      selectedNodeTypeId: null, // CI type ID for the detail drawer
       selectedLayers: [],
       availableLayers: [],
       selectedSites: ['VNPAY', 'GDS', 'CMC'],
@@ -331,10 +394,23 @@ export default {
       CITypeId: null,
       checkedNodes: [],
       nodes: [],
-      ciTypeRelationGraphData: null
+      ciTypeRelationGraphData: null,
+      // CI Type filtering
+      selectedCITypeAliases: [], // Array of CI type aliases that should be shown
+      ciTypeIdToAlias: {}, // Mapping from CI type ID to ci_alias
+      // Drag tracking for click vs drag detection
+      mouseDownPosition: null, // { x, y } position when mouse was pressed
+      isDragging: false, // Whether user is currently dragging
+      dragThreshold: 5 // Pixels to move before considering it a drag
     }
   },
   computed: {
+    windowHeight() {
+      return this.$store.state.windowHeight
+    },
+    windowWidth() {
+      return this.$store.state.windowWidth
+    },
     formItemLayout() {
       const { formLayout } = this
       return formLayout === 'horizontal'
@@ -344,6 +420,17 @@ export default {
           }
         : {}
     },
+    // Get layers with their colors for legend
+    layerLegend() {
+      if (!this.availableLayers || this.availableLayers.length === 0) {
+        return []
+      }
+
+      return this.availableLayers.map(layer => ({
+        name: layer,
+        color: this.layerColors[layer] || '#cccccc'
+      })).sort((a, b) => a.name.localeCompare(b.name))
+    },
   },
   watch: {
     currentPage: function(newVal, oldVal) {
@@ -351,6 +438,8 @@ export default {
     }
   },
   mounted() {
+    // Load config from localStorage
+    this.loadConfigFromLocalStorage()
     // Load layers from API first, then load applications
     this.loadLayersFromAPI().then(() => {
       this.loadApplications()
@@ -475,13 +564,21 @@ export default {
         // Build type2meta mapping from nodes (similar to topology_view)
         // Use ci_alias as key since type_id is not available in the response
         this.type2meta = {}
+        // Build mapping from node alias to original node data
+        this.nodeAliasToData = {}
         if (response && response.node && Array.isArray(response.node)) {
           response.node.forEach(node => {
-            if (node.ci_type && node.ci_type.ci_alias && node.ci_type.ci_icon) {
-              // Only include valid icons (exclude "caise-default" and empty strings)
-              const icon = node.ci_type.ci_icon
-              if (icon && icon !== 'caise-default' && icon.trim() !== '') {
-                this.type2meta[node.ci_type.ci_alias] = icon
+            // Store node data by alias for later lookup
+            if (node.alias) {
+              this.nodeAliasToData[node.alias] = node
+            }
+            if (node.ci_type && node.ci_type.ci_alias) {
+              // Map icons
+              if (node.ci_type.ci_icon) {
+                const icon = node.ci_type.ci_icon
+                if (icon && icon !== 'caise-default' && icon.trim() !== '') {
+                  this.type2meta[node.ci_type.ci_alias] = icon
+                }
               }
             }
           })
@@ -509,11 +606,13 @@ export default {
 
     handleLayerChange(value) {
       this.selectedLayers = value
+      this.saveConfigToLocalStorage()
       this.updateGraphWithFilteredData()
     },
 
     handleSiteChange(value) {
       this.selectedSites = value
+      this.saveConfigToLocalStorage()
       this.updateGraphWithFilteredData()
     },
 
@@ -523,7 +622,7 @@ export default {
         return
       }
 
-      // Filter nodes by selected layers AND selected sites
+      // Filter nodes by selected layers AND selected sites AND selected CI types
       const filteredNodes = this.mockData.node
         .filter(node => {
           // Check layer filter
@@ -532,17 +631,25 @@ export default {
           // Check site filter: always show null sites, otherwise check if selected
           const siteMatch = node.site === null || this.selectedSites.includes(node.site)
 
-          // AND logic: must match both filters
-          return layerMatch && siteMatch
+          // Check CI type filter: if selectedCITypeAliases is empty, show all
+          // Otherwise, check if node's ci_type.ci_alias is in selectedCITypeAliases
+          const ciTypeMatch = this.selectedCITypeAliases.length === 0 ||
+            (node.ci_type && node.ci_type.ci_alias &&
+             this.selectedCITypeAliases.includes(node.ci_type.ci_alias))
+
+          // AND logic: must match all filters
+          return layerMatch && siteMatch && ciTypeMatch
         })
         .map(node => {
           // Look up icon from type2meta using ci_alias (similar to topology_view)
           const ci_alias = node.ci_type?.ci_alias
           const icon = ci_alias ? (this.type2meta[ci_alias] || '') : ''
+          // Use layer color only (not ci_type color)
+          const borderColor = this.layerColors[node.layer] || '#cccccc'
           return {
             id: node.alias,
             text: node.name,
-            borderColor: this.layerColors[node.layer] || '#cccccc',
+            borderColor: borderColor,
             fontColor: '#333333',
             color: '#ffffff',
             data: {
@@ -638,6 +745,200 @@ export default {
       this.$message.info(`Edge: ${lineObject.text || 'No label'}`)
     },
 
+    handleNodeMouseDown(node, $event) {
+      // Record mouse position when pressed
+      this.mouseDownPosition = {
+        x: $event.clientX,
+        y: $event.clientY
+      }
+      this.isDragging = false
+    },
+
+    handleNodeMouseMove($event) {
+      // Check if mouse moved significantly (drag threshold)
+      if (this.mouseDownPosition) {
+        const deltaX = Math.abs($event.clientX - this.mouseDownPosition.x)
+        const deltaY = Math.abs($event.clientY - this.mouseDownPosition.y)
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+        if (distance > this.dragThreshold) {
+          this.isDragging = true
+        }
+      }
+    },
+
+    handleNodeMouseUp(node, $event) {
+      // Calculate final distance to determine if it was a drag
+      if (this.mouseDownPosition) {
+        const deltaX = Math.abs($event.clientX - this.mouseDownPosition.x)
+        const deltaY = Math.abs($event.clientY - this.mouseDownPosition.y)
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+        if (distance > this.dragThreshold) {
+          this.isDragging = true
+        }
+      }
+
+      // Reset drag tracking after a short delay to allow click event to check isDragging
+      // The click handler will check isDragging before opening drawer
+      setTimeout(() => {
+        this.mouseDownPosition = null
+        this.isDragging = false
+      }, 50)
+    },
+
+    async handleCustomNodeClick(node, $event) {
+      // Only open drawer if it was a click, not a drag
+      if (this.isDragging) {
+        console.log('Drag detected, not opening drawer')
+        return
+      }
+
+      if ($event) {
+        $event.preventDefault()
+        $event.stopPropagation()
+      }
+
+      console.log('handleCustomNodeClick called', node)
+      console.log('Node ID:', node.id)
+      console.log('nodeAliasToData keys:', Object.keys(this.nodeAliasToData))
+
+      // Find original node data from mockData
+      const rawNode = this.nodeAliasToData[node.id]
+      if (!rawNode) {
+        console.log('Node data not found for:', node.id)
+        this.$message.error('Node data not found')
+        return
+      }
+
+      // Show loading message immediately
+      const hideLoading = this.$message.loading('Loading CI details...', 0)
+
+      // Search CI to get _id and type_id
+      // Try searching by alias first, then by name
+      let ciData = null
+      try {
+        this.isLoadingNodeData = true
+
+        // Search by alias (node.id is the alias)
+        const searchByAlias = await searchCI({ q: `*${node.id}*` }, false)
+        if (searchByAlias.result && searchByAlias.result.length > 0) {
+          // Find exact match by alias or name
+          ciData = searchByAlias.result.find(ci => {
+            const ciAlias = ci.alias || ci.unique_name || ''
+            const ciName = ci.name || ''
+            return ciAlias.toLowerCase() === node.id.toLowerCase() ||
+                   ciName.toLowerCase() === node.text.toLowerCase()
+          }) || searchByAlias.result[0]
+        }
+
+        // If not found, try searching by name
+        if (!ciData) {
+          const searchByName = await searchCI({ q: `*${node.text}*` }, false)
+          if (searchByName.result && searchByName.result.length > 0) {
+            ciData = searchByName.result[0]
+          }
+        }
+
+        this.isLoadingNodeData = false
+
+        if (!ciData || !ciData._id || !ciData._type) {
+          hideLoading()
+          this.$message.error(this.$t('cmdb.topo.noInstancePerm') || 'CI instance not found')
+          return
+        }
+
+        console.log('CI Data found:', ciData)
+        console.log('Opening drawer with CI ID:', ciData._id, 'Type ID:', ciData._type)
+
+        // Store type ID for drawer
+        this.selectedNodeTypeId = ciData._type
+
+        // Hide loading message before opening drawer
+        hideLoading()
+
+        // Open the detail drawer
+        this.$nextTick(() => {
+          if (this.$refs.ciDetailDrawer) {
+            this.$refs.ciDetailDrawer.create(ciData._id)
+          } else {
+            console.error('CiDetailDrawer ref not found')
+            this.$message.error('Failed to open detail drawer')
+          }
+        })
+      } catch (error) {
+        this.isLoadingNodeData = false
+        hideLoading()
+        console.error('Error in handleCustomNodeClick:', error)
+        this.$message.error(((error.response || {}).data || {}).message || 'Failed to load node data')
+      }
+    },
+
+    handleNullNodeTips(errorMessage) {
+      this.errorMessage = errorMessage
+      this.errorMessageShow = true
+      this.currentNodeValues = null
+      this.currentNodeAttributes = []
+      this.isShowNodeTipsPanel = true // Show tooltip to display error message
+      console.log('Error in tooltip:', errorMessage)
+    },
+
+    handleNodeLeave() {
+      this.isShowNodeTipsPanel = false
+      this.currentNodeValues = null
+      this.currentNodeAttributes = []
+      this.errorMessageShow = false
+      this.errorMessage = ''
+      this.isLoadingNodeData = false
+    },
+
+    // localStorage methods
+    saveConfigToLocalStorage() {
+      try {
+        const config = {
+          selectedCITypeAliases: this.selectedCITypeAliases,
+          selectedLayers: this.selectedLayers,
+          selectedSites: this.selectedSites
+        }
+        localStorage.setItem('cmdb-graph-view-config', JSON.stringify(config))
+      } catch (error) {
+        console.error('Failed to save config to localStorage:', error)
+      }
+    },
+
+    loadConfigFromLocalStorage() {
+      try {
+        const savedConfig = localStorage.getItem('cmdb-graph-view-config')
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig)
+          // Validate and apply config
+          if (Array.isArray(config.selectedCITypeAliases)) {
+            this.selectedCITypeAliases = config.selectedCITypeAliases
+          }
+          if (Array.isArray(config.selectedLayers)) {
+            this.selectedLayers = config.selectedLayers
+          }
+          if (Array.isArray(config.selectedSites)) {
+            this.selectedSites = config.selectedSites
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load config from localStorage:', error)
+        // Use defaults if loading fails
+      }
+    },
+
+    ensureApplicationIncluded() {
+      // Ensure Application CI type is always included in selectedCITypeAliases
+      // This should be called after ciTypeIdToAlias is populated
+      if (this.ciTypeIdToAlias['3']) {
+        const applicationAlias = this.ciTypeIdToAlias['3']
+        if (!this.selectedCITypeAliases.includes(applicationAlias)) {
+          this.selectedCITypeAliases.push(applicationAlias)
+        }
+      }
+    },
+
     getNodeHeaderStyle(node) {
       return {
         borderLeft: `4px solid ${this.layerColors[node.data.layer] || '#cccccc'}`
@@ -663,6 +964,9 @@ export default {
       }
       return colorMap[site] || 'default'
     },
+    getColorForLayer(layer) {
+      return this.layerColors[layer] || '#cccccc'
+    },
     // Drawer methods
     handleOpenDrawer() {
       if (!this.selectedAppCode) {
@@ -679,14 +983,48 @@ export default {
 
       // Reset form and set default values
       this.form.resetFields()
-      this.$nextTick(() => {
+      this.$nextTick(async () => {
         this.form.setFieldsValue({
           central_node_type: 3,
           central_node_instances: this.selectedAppCode
         })
         // Load relations for Application type
-        this.checkedNodes = ['3'] // Application type ID
-        this.getRelationsByTypeId(3)
+        await this.getRelationsByTypeId(3)
+
+        // Ensure Application is always included in selectedCITypeAliases
+        this.ensureApplicationIncluded()
+
+        // After loading relations, restore or initialize checkedNodes
+        if (this.selectedCITypeAliases.length > 0) {
+          // Restore previous selection: convert selectedCITypeAliases back to CI type IDs
+          const restoredCheckedNodes = []
+          Object.keys(this.ciTypeIdToAlias).forEach(ciTypeId => {
+            const ciAlias = this.ciTypeIdToAlias[ciTypeId]
+            if (this.selectedCITypeAliases.includes(ciAlias)) {
+              restoredCheckedNodes.push(ciTypeId)
+            }
+          })
+          // Ensure Application (ID 3) is always included
+          if (!restoredCheckedNodes.includes('3')) {
+            restoredCheckedNodes.push('3')
+          }
+          this.checkedNodes = restoredCheckedNodes.length > 0 ? restoredCheckedNodes : ['3']
+        } else {
+          // No previous selection: select all CI types by default
+          this.checkedNodes = this.nodes.map(node => String(node.id))
+          // Ensure Application (ID 3) is always included
+          if (!this.checkedNodes.includes('3')) {
+            this.checkedNodes.push('3')
+          }
+        }
+
+        // Update checkboxes in the graph
+        this.$nextTick(() => {
+          if (this.$refs.ciTypeRelationGraph) {
+            // Force update of checkboxes
+            this.$forceUpdate()
+          }
+        })
       })
 
       this.selectedPath = {}
@@ -694,7 +1032,8 @@ export default {
     onClose() {
       this.form.resetFields()
       this.drawerVisible = false
-      this.checkedNodes = []
+      // Don't reset checkedNodes and selectedCITypeAliases - preserve them
+      // Only reset if user explicitly wants to clear (handled elsewhere)
       this.nodes = []
       this.CITypeId = null
     },
@@ -726,6 +1065,18 @@ export default {
         const nodes = []
         const links = []
         this.nodes = res.nodes
+
+        // Build mapping from CI type ID to ci_alias
+        this.ciTypeIdToAlias = {}
+        res.nodes.forEach(item => {
+          // item.alias is the ci_alias, item.id is the CI type ID
+          const ciTypeId = String(item.id)
+          const ciAlias = item.alias || item.name
+          if (ciAlias) {
+            this.ciTypeIdToAlias[ciTypeId] = ciAlias
+          }
+        })
+
         res.edges.forEach(item => {
           links.push({
             from: `${item.from_id}`,
@@ -797,11 +1148,33 @@ export default {
       this.selectedInstances = this.selectedAppCode
       this.selectedPath = this.wrapPath()
 
+      // Convert checkedNodes (CI type IDs) to CI type aliases
+      const selectedAliases = []
+      this.checkedNodes.forEach(ciTypeId => {
+        const ciAlias = this.ciTypeIdToAlias[String(ciTypeId)]
+        if (ciAlias) {
+          selectedAliases.push(ciAlias)
+        }
+      })
+
+      // If no CI types selected, show all (empty array means show all)
+      // If CI types are selected, use them for filtering
+      this.selectedCITypeAliases = selectedAliases.length > 0 ? selectedAliases : []
+
+      // Ensure Application is always included
+      const applicationAlias = this.ciTypeIdToAlias['3']
+      if (applicationAlias && !this.selectedCITypeAliases.includes(applicationAlias)) {
+        this.selectedCITypeAliases.push(applicationAlias)
+      }
+
+      // Save config to localStorage
+      this.saveConfigToLocalStorage()
+
       // Close drawer
       this.drawerVisible = false
 
-      // Load graph with new filters
-      await this.loadGraphDataWithFilters()
+      // Update graph with filtered data (including CI type filter)
+      this.updateGraphWithFilteredData()
     },
     async loadGraphDataWithFilters() {
       this.loading = true
@@ -818,8 +1191,14 @@ export default {
 
           // Build type2meta mapping from nodes (similar to loadGraphData)
           this.type2meta = {}
+          // Build mapping from node alias to original node data
+          this.nodeAliasToData = {}
           if (response && response.node && Array.isArray(response.node)) {
             response.node.forEach(node => {
+              // Store node data by alias for later lookup
+              if (node.alias) {
+                this.nodeAliasToData[node.alias] = node
+              }
               if (node.ci_type && node.ci_type.ci_alias && node.ci_type.ci_icon) {
                 // Only include valid icons (exclude "caise-default" and empty strings)
                 const icon = node.ci_type.ci_icon
@@ -967,18 +1346,21 @@ export default {
   }
 
   .graph-toolbar {
-    padding: 16px;
+    padding: 12px 16px;
     background: #ffffff;
     border-bottom: 1px solid #e8e8e8;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: nowrap;
+    min-height: 50px;
 
     .legend {
       display: flex;
       align-items: center;
       gap: 8px;
-
+      flex-shrink: 0;
+      flex-wrap: wrap;
     }
   }
 
@@ -987,6 +1369,59 @@ export default {
     position: relative;
     background: #ffffff;
     overflow: hidden;
+
+    .layer-legend {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
+      background: #ffffff;
+      border-radius: 4px;
+      border: 1px solid #e8e8e8;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: 12px 16px;
+      min-width: 180px;
+
+      .legend-header {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e8e8e8;
+
+        .legend-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #333;
+        }
+      }
+
+      .legend-items {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        cursor: default;
+
+        .legend-color {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border-radius: 2px;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          flex-shrink: 0;
+        }
+
+        .legend-text {
+          color: #333;
+          flex: 1;
+        }
+      }
+    }
   }
 }
 
@@ -1067,6 +1502,16 @@ export default {
     background: #f5f5f5;
     border-top: 1px solid #e8e8e8;
   }
+
+  .node-tips {
+    z-index: 999;
+    padding: 10px;
+    background-color: #ffffff;
+    border: #eeeeee solid 1px;
+    box-shadow: 0px 0px 8px #cccccc;
+    position: absolute;
+    overflow: auto;
+  }
 }
 
 .node-details {
@@ -1092,6 +1537,28 @@ export default {
     cursor: pointer;
     &:hover {
       filter: brightness(0.95);
+    }
+  }
+
+  // Prevent tags from wrapping in select dropdowns
+  .graph-toolbar {
+    .ant-select-selection {
+      overflow: hidden;
+    }
+    .ant-select-selection__rendered {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .ant-select-selection__choice {
+      flex-shrink: 0;
+      margin: 2px 4px 2px 0;
+      max-width: 100%;
+    }
+    .ant-select-selection__choice__content {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 }
