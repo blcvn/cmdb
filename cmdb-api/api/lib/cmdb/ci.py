@@ -64,6 +64,7 @@ from api.tasks.cmdb import ci_delete_trigger
 from api.tasks.cmdb import ci_relation_add
 from api.tasks.cmdb import ci_relation_cache
 from api.tasks.cmdb import ci_relation_delete
+from api.tasks.cmdb import ci_relation_cleanup_deleted
 from api.tasks.cmdb import delete_id_filter
 
 PASSWORD_DEFAULT_SHOW = "******"
@@ -1422,17 +1423,11 @@ class CIRelationManager(object):
                     PermEnum.DELETE):
                 return abort(403, ErrFormat.no_permission.format(resource_name, PermEnum.DELETE))
 
-        cr.delete()
+        # Soft delete and return immediately
+        cr.soft_delete()
 
-        his_manager = CIRelationHistoryManager()
-        his_manager.add(cr, operate_type=OperateType.DELETE)
-
-        if apply_async:
-            ci_relation_delete.apply_async(args=(cr.first_ci_id, cr.second_ci_id, cr.ancestor_ids), queue=CMDB_QUEUE)
-            delete_id_filter.apply_async(args=(cr.second_ci_id,), queue=CMDB_QUEUE)
-        else:
-            ci_relation_delete(cr.first_ci_id, cr.second_ci_id, cr.ancestor_ids)
-            delete_id_filter(cr.second_ci_id)
+        # Process actual deletion, history and cache in background
+        ci_relation_cleanup_deleted.apply_async(args=(cr_id,), queue=CMDB_QUEUE)
 
         return cr_id
 

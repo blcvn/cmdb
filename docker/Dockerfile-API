@@ -1,25 +1,44 @@
-# ================================= API ================================
+# ============================ API ============================
 FROM python:3.8-alpine AS cmdb-api
 
 LABEL description="Python3.8,cmdb"
 
-COPY cmdb-api /data/apps/cmdb
+ENV TZ=Asia/Ho_Chi_Minh \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /data/apps/cmdb
 
-# RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+# 1️⃣ Cài system deps (ít thay đổi → cache tốt)
+RUN apk add --no-cache \
+    tzdata \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openldap-dev \
+    python3-dev \
+    jpeg-dev \
+    zlib-dev \
+    build-base
 
-RUN apk add --no-cache tzdata gcc musl-dev libffi-dev openldap-dev python3-dev jpeg-dev zlib-dev build-base
+# 2️⃣ Copy requirements trước (cache pip)
+COPY cmdb-api/requirements.txt .
 
-ENV TZ=Asia/Ho_Chi_Minh
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install  --no-cache-dir -r requirements.txt \
-    && cp ./settings.example.py settings.py \
+# 3️⃣ Copy source code (hay thay đổi → để sau)
+COPY cmdb-api .
+
+# 4️⃣ Config runtime
+RUN cp ./settings.example.py settings.py \
     && sed -i "s#{user}:{password}@127.0.0.1:3306/{db}#cmdb:123456@mysql:3306/cmdb#g" settings.py \
     && sed -i "s#redis://127.0.0.1#redis://redis#g" settings.py \
     && sed -i "s#CACHE_REDIS_HOST = '127.0.0.1'#CACHE_REDIS_HOST = 'redis'#g" settings.py
 
+# 5️⃣ docker-compose-wait
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
 RUN chmod +x /wait
 
-CMD ["bash", "-c", "flask run"]
+EXPOSE 5000
+
+CMD ["flask", "run", "--host=0.0.0.0"]

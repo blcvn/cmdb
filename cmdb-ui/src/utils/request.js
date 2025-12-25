@@ -19,11 +19,24 @@ const service = axios.create({
 
 const err = (error) => {
   console.log(error)
+
+  // Handle cancelled requests (component unmount, navigation, etc.)
+  if (axios.isCancel(error)) {
+    // Request was cancelled, silently reject
+    return Promise.reject(error)
+  }
+
+  // Handle timeout errors (no response)
+  if (error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'))) {
+    // Don't show error message for timeout, let the calling code handle it
+    return Promise.reject(error)
+  }
+
   const reg = /5\d{2}/g
   if (error.response && reg.test(error.response.status)) {
     const errorMsg = ((error.response || {}).data || {}).message || i18n.t('requestServiceError')
     message.error(errorMsg)
-  } else if (error.response.status === 412) {
+  } else if (error.response && error.response.status === 412) {
     let seconds = 5
     notification.warning({
       key: 'notification',
@@ -49,13 +62,15 @@ const err = (error) => {
         duration: seconds
       })
     }, 1000)
-  } else if (error.config.url === '/api/v0.1/ci_types/can_define_computed' || error.config.isShowMessage === false) {
-  } else {
+  } else if (error.config && (error.config.url === '/api/v0.1/ci_types/can_define_computed' || error.config.isShowMessage === false)) {
+    // Don't show error message for specific URLs or when explicitly disabled
+  } else if (error.response) {
     const errorMsg = ((error.response || {}).data || {}).message || i18n.t('requestError')
     message.error(`${errorMsg}`)
   }
+
   if (error.response) {
-    console.log(error.config.url)
+    console.log(error.config?.url)
     if (error.response.status === 401 && router.path === '/user/login') {
       window.location.href = '/user/logout'
     }
