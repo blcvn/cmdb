@@ -47,7 +47,12 @@ class TopologyViewManager(object):
         cls.group_cls.get_by(name=name, first=True, to_dict=False) and abort(
             400, ErrFormat.topology_group_exists.format(name))
 
-        return cls.group_cls.create(name=name, order=order)
+        result = cls.group_cls.create(name=name, order=order)
+        
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
+        
+        return result
 
     def update_group(self, group_id, name, view_ids):
         existed = self.group_cls.get_by_id(group_id) or abort(404, ErrFormat.not_found)
@@ -59,6 +64,9 @@ class TopologyViewManager(object):
             if view is not None:
                 view.update(group_id=group_id, order=idx)
 
+        # Invalidate cache
+        self._invalidate_get_all_cache()
+
         return existed.to_dict()
 
     @classmethod
@@ -69,12 +77,18 @@ class TopologyViewManager(object):
             return abort(400, ErrFormat.topo_view_exists_cannot_delete_group)
 
         existed.soft_delete()
+        
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
 
     @classmethod
     def group_order(cls, group_ids):
         for idx, group_id in enumerate(group_ids):
             group = cls.group_cls.get_by_id(group_id)
             group.update(order=idx + 1)
+        
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
 
     @classmethod
     def add(cls, name, group_id, option, order=None, **kwargs):
@@ -96,6 +110,10 @@ class TopologyViewManager(object):
                                                 current_user.username,
                                                 ResourceTypeEnum.TOPOLOGY_VIEW)
 
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
+        cls._invalidate_topology_view_cache()  # Invalidate all view result caches
+
         return inst
 
     @classmethod
@@ -110,6 +128,10 @@ class TopologyViewManager(object):
             except BadRequest:
                 pass
 
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
+        cls._invalidate_topology_view_cache(_id)  # Invalidate specific view result cache
+
         return inst
 
     @classmethod
@@ -117,6 +139,10 @@ class TopologyViewManager(object):
         existed = cls.cls.get_by_id(_id) or abort(404, ErrFormat.not_found)
 
         existed.soft_delete()
+        
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
+        cls._invalidate_topology_view_cache(_id)  # Invalidate specific view result cache
         if current_app.config.get("USE_ACL"):
             ACLManager().del_resource(existed.name, ResourceTypeEnum.TOPOLOGY_VIEW)
 
@@ -125,9 +151,93 @@ class TopologyViewManager(object):
         for idx, _id in enumerate(_ids):
             topology = cls.cls.get_by_id(_id)
             topology.update(order=idx + 1)
+        
+        # Invalidate cache
+        cls._invalidate_get_all_cache()
+
+    @classmethod
+    def _invalidate_get_all_cache(cls):
+        """Invalidate all topology_views cache (for all users)"""
+        try:
+            # Delete base cache key
+            rd.r.delete("TOPOLOGY_VIEWS:topology_views:all")
+            
+            # Try to delete user-specific keys using Redis SCAN
+            try:
+                pattern = "TOPOLOGY_VIEWS:topology_views:all:user:*"
+                cursor = 0
+                deleted_count = 0
+                while True:
+                    cursor, keys = rd.r.scan(cursor, match=pattern, count=100)
+                    if keys:
+                        for key in keys:
+                            rd.r.delete(key)
+                            deleted_count += 1
+                    if cursor == 0:
+                        break
+                if deleted_count > 0:
+                    current_app.logger.debug(f"Deleted {deleted_count} user-specific topology_views cache keys")
+            except Exception as scan_error:
+                # If SCAN fails, log warning but continue
+                current_app.logger.debug(f"Could not scan keys for topology_views cache: {str(scan_error)}")
+            
+            current_app.logger.debug("Invalidated topology_views cache")
+        except Exception as e:
+            current_app.logger.warning(f"Failed to invalidate topology_views cache: {str(e)}")
+
+    @classmethod
+    def _invalidate_topology_view_cache(cls, view_id=None):
+        """Invalidate topology view result cache for a specific view or all views"""
+        try:
+            if view_id:
+                # Delete specific view cache
+                cache_key = f"TOPOLOGY_VIEW_RESULT:topology_view:result:{view_id}"
+                rd.r.delete(cache_key)
+                current_app.logger.debug(f"Invalidated topology_view result cache for view {view_id}")
+            else:
+                # Delete all topology view result caches using Redis SCAN
+                try:
+                    pattern = "TOPOLOGY_VIEW_RESULT:topology_view:result:*"
+                    cursor = 0
+                    deleted_count = 0
+                    while True:
+                        cursor, keys = rd.r.scan(cursor, match=pattern, count=100)
+                        if keys:
+                            for key in keys:
+                                rd.r.delete(key)
+                                deleted_count += 1
+                        if cursor == 0:
+                            break
+                    if deleted_count > 0:
+                        current_app.logger.debug(f"Invalidated {deleted_count} topology_view result caches")
+                except Exception as scan_error:
+                    current_app.logger.debug(f"Could not scan keys for topology_view result cache: {str(scan_error)}")
+        except Exception as e:
+            current_app.logger.warning(f"Failed to invalidate topology_view result cache: {str(e)}")
 
     @classmethod
     def get_all(cls):
+        # Cache key includes user info because ACL filtering is user-specific
+        cache_key = f"TOPOLOGY_VIEWS:topology_views:all"
+        if current_app.config.get('USE_ACL') and not is_app_admin('cmdb'):
+            user_id = getattr(current_user, 'uid', None) or getattr(current_user, 'id', None) or 'anonymous'
+            cache_key = f"TOPOLOGY_VIEWS:topology_views:all:user:{user_id}"
+        
+        # Try to get from cache
+        cached = rd.get_str(cache_key)
+        if cached:
+            try:
+                # Handle bytes response from Redis
+                if isinstance(cached, bytes):
+                    cached = cached.decode('utf-8')
+                result = json.loads(cached)
+                current_app.logger.debug(f"Cache hit for topology_views:all")
+                return result
+            except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+                current_app.logger.warning(f"Failed to parse cached topology_views, fetching from DB")
+        
+        current_app.logger.debug(f"Cache not hit for topology_views:all, fetching from DB")
+        
         resources = None
         if current_app.config.get('USE_ACL') and not is_app_admin('cmdb'):
             resources = set([i.get('name') for i in ACLManager().get_resources(ResourceTypeEnum.TOPOLOGY_VIEW)])
@@ -150,6 +260,12 @@ class TopologyViewManager(object):
         if other_group['views']:
             groups.append(other_group)
 
+        # Cache the result (TTL: 5 minutes)
+        try:
+            rd.set_str(cache_key, json.dumps(groups), expired=300)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to cache topology_views: {str(e)}")
+
         return groups
 
     @staticmethod
@@ -159,11 +275,31 @@ class TopologyViewManager(object):
         return dict(nodes=nodes, edges=edges)
 
     def topology_view(self, view_id=None, preview=None):
+        # Cache key for topology view result
+        cache_key = None
         if view_id is not None:
+            # Cache by view_id
+            cache_key = f"TOPOLOGY_VIEW_RESULT:topology_view:result:{view_id}"
+            # Try to get from cache
+            cached = rd.get_str(cache_key)
+            if cached:
+                try:
+                    # Handle bytes response from Redis
+                    if isinstance(cached, bytes):
+                        cached = cached.decode('utf-8')
+                    result = json.loads(cached)
+                    current_app.logger.debug(f"Cache hit for topology_view:{view_id}")
+                    return result
+                except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+                    current_app.logger.warning(f"Failed to parse cached topology_view result, fetching from DB")
+            
+            current_app.logger.debug(f"Cache not hit for topology_view:{view_id}, fetching from DB")
+            
             view = self.cls.get_by_id(view_id) or abort(404, ErrFormat.not_found)
             central_node_type, central_node_instances, path = (view.central_node_type,
                                                                view.central_node_instances, view.path)
         else:
+            # Preview mode - don't cache (dynamic query)
             central_node_type = preview.get('central_node_type')
             central_node_instances = preview.get('central_node_instances')
             path = preview.get('path')
@@ -248,4 +384,14 @@ class TopologyViewManager(object):
                 id2node[str(i['_id'])]['name'] = i[type2show[str(i['_type'])]]
             nodes.extend(id2node.values())
 
-        return dict(nodes=nodes, links=links, type2meta=type2meta)
+        result = dict(nodes=nodes, links=links, type2meta=type2meta)
+        
+        # Cache the result if view_id is provided (not preview mode)
+        if cache_key:
+            try:
+                rd.set_str(cache_key, json.dumps(result), expired=120)
+                current_app.logger.debug(f"Cached topology_view result for {view_id}")
+            except Exception as e:
+                current_app.logger.warning(f"Failed to cache topology_view result: {str(e)}")
+        
+        return result
