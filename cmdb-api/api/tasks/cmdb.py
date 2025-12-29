@@ -245,6 +245,186 @@ def ci_relation_delete(parent_id, child_id, ancestor_ids):
     current_app.logger.info("DELETE ci relation cache: {0} -> {1}".format(parent_id, child_id))
 
 
+@celery.task(name="cmdb.ci_relation_cleanup_deleted", queue=CMDB_QUEUE)
+@reconnect_db
+def ci_relation_cleanup_deleted(cr_id):
+    """
+    Background task to actually delete CI relations that have been soft deleted (deleted=1).
+    This processes history, cache deletion, and hard delete in background.
+    """
+    try:
+        # Use direct query to get the relation even if it's soft deleted
+        # get_by_id filters out deleted records, but we need to process deleted ones
+        from api.models.cmdb import CIRelation
+        from api.extensions import db
+        cr = db.session.query(CIRelation).filter(CIRelation.id == cr_id).first()
+        if not cr:
+            current_app.logger.warning(f"CI relation {cr_id} not found")
+            return
+        if not cr.deleted:
+            current_app.logger.warning(f"CI relation {cr_id} is not deleted, skipping cleanup")
+            return
+
+        # Add history
+        from api.lib.cmdb.history import CIRelationHistoryManager
+        from api.lib.cmdb.const import OperateType
+        his_manager = CIRelationHistoryManager()
+        his_manager.add(cr, operate_type=OperateType.DELETE)
+
+        # Delete cache
+        ci_relation_delete(cr.first_ci_id, cr.second_ci_id, cr.ancestor_ids)
+        delete_id_filter.apply_async(args=(cr.second_ci_id,), queue=CMDB_QUEUE)
+
+        # Hard delete the relation
+        cr.delete()
+
+        current_app.logger.info("Hard deleted CI relation {0} (first_ci_id={1}, second_ci_id={2})".format(
+            cr_id, cr.first_ci_id, cr.second_ci_id
+        ))
+    except Exception as e:
+        current_app.logger.error("Error cleaning up deleted CI relation {0}: {1}".format(cr_id, str(e)))
+        db.session.rollback()
+
+
+@celery.task(name="cmdb.ci_type_relation_cleanup_deleted", queue=CMDB_QUEUE)
+@reconnect_db
+def ci_type_relation_cleanup_deleted(ctr_id):
+    """
+    Background task to cleanup deleted CI type relation.
+    This processes cascade delete of CI relations, history and ACL in background.
+    """
+    try:
+        from api.models.cmdb import CITypeRelation, CIRelation, CI
+        from api.lib.cmdb.ci_type import CITypeRelationManager, CITypeManager, CITypeHistoryManager
+        from api.lib.cmdb.const import CITypeOperateType
+        from api.lib.perm.acl.acl import ACLManager
+        from api.lib.cmdb.const import ResourceTypeEnum
+        from api.extensions import db
+
+        # Query the relation with deleted=True filter to ensure we only process deleted ones
+        # This avoids issues with boolean representation (1/0 vs True/False)
+        ctr = db.session.query(CITypeRelation).filter(
+            CITypeRelation.id == ctr_id,
+            CITypeRelation.deleted.is_(True)  # Use is_(True) to handle MySQL TINYINT(1) properly
+        ).first()
+        
+        if not ctr:
+            # If not found with deleted=True, check if it exists at all
+            exists = db.session.query(CITypeRelation.id).filter(CITypeRelation.id == ctr_id).first()
+            if not exists:
+                current_app.logger.warning(f"CI type relation {ctr_id} not found")
+                return
+            
+            # It exists but not deleted - wait a bit and check again (race condition handling)
+            import time
+            time.sleep(0.5)
+            ctr = db.session.query(CITypeRelation).filter(
+                CITypeRelation.id == ctr_id,
+                CITypeRelation.deleted.is_(True)
+            ).first()
+            
+            if not ctr:
+                # Check raw deleted value for debugging
+                raw_deleted = db.session.query(CITypeRelation.deleted).filter(CITypeRelation.id == ctr_id).first()
+                deleted_value = raw_deleted[0] if raw_deleted else None
+                current_app.logger.warning(
+                    f"CI type relation {ctr_id} is not deleted (deleted={deleted_value}, type={type(deleted_value)}) after refresh, skipping cleanup. "
+                    f"This might be a race condition or the relation was restored."
+                )
+                return
+
+        current_app.logger.info(
+            f"Starting cleanup for CI type relation {ctr_id} "
+            f"(parent={ctr.parent_id}, child={ctr.child_id}, relation_type={ctr.relation_type_id})"
+        )
+
+        # Cascade delete: Remove all CI relationships between parent type and child type
+        # Query all CI relations where first_ci.type_id == parent_id and second_ci.type_id == child_id
+        # Don't filter by relation_type_id - delete all relations between these types
+        from sqlalchemy.orm import aliased
+        first_ci_alias = aliased(CI)
+        second_ci_alias = aliased(CI)
+        
+        ci_relations = db.session.query(
+            CIRelation
+        ).join(
+            first_ci_alias, CIRelation.first_ci_id == first_ci_alias.id
+        ).join(
+            second_ci_alias, CIRelation.second_ci_id == second_ci_alias.id
+        ).filter(
+            first_ci_alias.type_id == ctr.parent_id,
+            second_ci_alias.type_id == ctr.child_id,
+            CIRelation.deleted.is_(False)
+        ).all()
+
+        current_app.logger.info(
+            f"Found {len(ci_relations)} CI relations between parent type {ctr.parent_id} and child type {ctr.child_id}"
+        )
+
+        # Soft delete all matching CI relationships and trigger cleanup
+        deleted_count = 0
+        deleted_ci_relation_ids = []
+        for ci_rel in ci_relations:
+            ci_rel.soft_delete(commit=False)
+            deleted_count += 1
+            deleted_ci_relation_ids.append(ci_rel.id)
+            current_app.logger.debug(
+                f"Soft deleting CI relation {ci_rel.id} "
+                f"(first_ci_id={ci_rel.first_ci_id}, second_ci_id={ci_rel.second_ci_id}, relation_type_id={ci_rel.relation_type_id})"
+            )
+
+        if deleted_count > 0:
+            try:
+                db.session.commit()
+                current_app.logger.info(
+                    f"Cascade soft deleted {deleted_count} CI relationships "
+                    f"for CITypeRelation {ctr_id} (parent={ctr.parent_id}, child={ctr.child_id}, relation_type={ctr.relation_type_id})"
+                )
+                
+                # Trigger cleanup for each deleted CI relation (cache deletion, etc.)
+                from api.tasks.cmdb import ci_relation_cleanup_deleted
+                for cr_id in deleted_ci_relation_ids:
+                    ci_relation_cleanup_deleted.apply_async(args=(cr_id,), queue=CMDB_QUEUE)
+            except Exception as e:
+                current_app.logger.error(f"Error committing CI relation soft deletes: {str(e)}")
+                db.session.rollback()
+                raise
+        else:
+            current_app.logger.info(
+                f"No matching CI relationships found to delete for CITypeRelation {ctr_id}"
+            )
+
+        # Add history
+        parent_dict = ctr.parent.to_dict() if ctr.parent else {}
+        child_dict = ctr.child.to_dict() if ctr.child else {}
+        CITypeHistoryManager.add(
+            CITypeOperateType.DELETE_RELATION,
+            ctr.parent_id,
+            change=dict(
+                parent_id=parent_dict,
+                child=child_dict,
+                relation_type_id=ctr.relation_type_id
+            )
+        )
+
+        # Delete ACL resource
+        if current_app.config.get("USE_ACL"):
+            try:
+                p = CITypeManager.check_is_existed(ctr.parent_id)
+                c = CITypeManager.check_is_existed(ctr.child_id)
+                resource_name = CITypeRelationManager.acl_resource_name(p.name, c.name)
+                ACLManager().del_resource(resource_name, ResourceTypeEnum.CI_TYPE_RELATION)
+                current_app.logger.info(f"Deleted ACL resource: {resource_name}")
+            except Exception as e:
+                current_app.logger.warning(f"Error deleting ACL resource for CI type relation {ctr_id}: {str(e)}")
+                # Continue even if ACL deletion fails
+
+        current_app.logger.info(f"Cleaned up CI type relation {ctr_id}")
+    except Exception as e:
+        current_app.logger.error(f"Error cleaning up CI type relation {ctr_id}: {str(e)}")
+        db.session.rollback()
+
+
 @celery.task(name="cmdb.ci_type_attribute_order_rebuild", queue=CMDB_QUEUE)
 @flush_db
 @reconnect_db

@@ -246,13 +246,13 @@ export default {
           // If cidr is available, check CIDR size
           if (this?.nodeData?.cidr) {
             const cidrSplit = this.nodeData.cidr.split('/')
-            const cidrNumber = cidrSplit[cidrSplit.length - 1]
-            if (Number(cidrNumber) >= 16) {
-              return ''
-            } else {
-              return 'cmdb.ipam.addressNullTip2'
-            }
-          }
+        const cidrNumber = cidrSplit[cidrSplit.length - 1]
+        if (Number(cidrNumber) >= 16) {
+          return ''
+        } else {
+          return 'cmdb.ipam.addressNullTip2'
+        }
+      }
           // If subnet but no cidr yet, allow display (will fetch cidr from API)
           return ''
         }
@@ -324,9 +324,9 @@ export default {
             // If cidr is available, check CIDR size
             if (node?.cidr) {
               const cidrSplit = node.cidr.split('/')
-              const cidrNumber = cidrSplit[cidrSplit.length - 1]
-              if (Number(cidrNumber) >= 16) {
-                this.initData()
+          const cidrNumber = cidrSplit[cidrSplit.length - 1]
+          if (Number(cidrNumber) >= 16) {
+            this.initData()
               }
             } else {
               // If no cidr, still try to load (will fetch cidr from API)

@@ -189,6 +189,16 @@
                 </template>
               </RelationGraph>
             </div>
+            <div v-if="currentView && currentView.view_config" class="topo-right-toolbar" style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+              <a-tooltip title="Refresh Cache">
+                <a-button
+                  icon="reload"
+                  size="small"
+                  :loading="cacheRefreshing"
+                  @click="handleRefreshCache"
+                />
+              </a-tooltip>
+            </div>
           </div>
           <div v-else class="topo-right-empty">
             <a-empty :image="emptyImage" description=""></a-empty>
@@ -333,7 +343,7 @@ import SeeksRelationGraph from '@/modules/cmdb/3rd/relation-graph'
 import RelationGraph from 'relation-graph'
 import CMDBGrant from '@/modules/cmdb/components/cmdbGrant'
 import { getSubscribeAttributes } from '@/modules/cmdb/api/preference'
-import { searchCI } from '@/modules/cmdb/api/ci'
+import { searchCI, flushCICache } from '@/modules/cmdb/api/ci'
 import { getTopoGroups, postTopoGroup, putTopoGroupByGId, putTopoGroupsOrder, deleteTopoGroup, getTopoView, addTopoView, updateTopoView, deleteTopoView, getRelationsByTypeId, previewTopoView, showTopoView } from '@/modules/cmdb/api/topology'
 import CMDBExprDrawer from '@/components/CMDBExprDrawer'
 import { v4 as uuidv4 } from 'uuid'
@@ -413,6 +423,7 @@ export default {
       toolBarPositionV: 'top',
     }
     return {
+      cacheRefreshing: false,
       graphOptions,
       graphOptions2,
       graphOptionsPrivew,
@@ -1019,7 +1030,38 @@ export default {
         this.topoViewJsonData = topoViewJsonData
       }
     },
+    async handleRefreshCache() {
+      this.cacheRefreshing = true
+      try {
+        // Get all CI IDs from current topology view
+        const nodes = this.topoViewJsonData?.nodes
+        if (nodes && nodes.size > 0) {
+          const ciIds = []
+          nodes.forEach((node) => {
+            if (node?.data?.ci_id) {
+              ciIds.push(node.data.ci_id)
+            }
+          })
 
+          // Refresh cache for each CI
+          for (const ciId of ciIds) {
+            await flushCICache(ciId)
+          }
+
+          this.$message.success(`Cache refreshed for ${ciIds.length} CIs`)
+
+          // Reload topology view
+          await this.showTopoView(this.currentView.id)
+        } else {
+          this.$message.warning('No CIs to refresh')
+        }
+      } catch (error) {
+        console.error('Error refreshing cache:', error)
+        this.$message.error(error.response?.data?.message || 'Failed to refresh cache')
+      } finally {
+        this.cacheRefreshing = false
+      }
+    },
     handleOpenCmdb() {
       this.$refs.cmdbDrawer.open()
     },
@@ -1246,7 +1288,6 @@ export default {
         },
         false
       )
-      this.topoViewJsonData = topoViewJsonData
     },
 
     changeTopoViewToolbarLang(lang) {

@@ -994,10 +994,13 @@ class CITypeRelationManager(object):
 
     @staticmethod
     def _get(parent_id, child_id):
-        return CITypeRelation.get_by(parent_id=parent_id,
-                                     child_id=child_id,
-                                     to_dict=False,
-                                     first=True)
+        # Only get non-deleted relation - don't restore soft-deleted ones
+        # Always create new relation instead of restoring
+        existed = CITypeRelation.get_by(parent_id=parent_id,
+                                        child_id=child_id,
+                                        to_dict=False,
+                                        first=True)
+        return existed
 
     @staticmethod
     def acl_resource_name(first_name, second_name):
@@ -1005,13 +1008,15 @@ class CITypeRelationManager(object):
 
     @classmethod
     def add(cls, parent, child, relation_type_id, constraint=ConstraintEnum.One2Many,
-            parent_attr_ids=None, child_attr_ids=None):
+            parent_attr_ids=None, child_attr_ids=None, matching_rules=None):
         p = CITypeManager.check_is_existed(parent)
         c = CITypeManager.check_is_existed(child)
 
         rels = defaultdict(set)
-        for i in CITypeRelation.get_by(to_dict=False):
+        # Only check non-deleted relations for circular dependency
+        for i in CITypeRelation.get_by(to_dict=False, deleted=False):
             rels[i.child_id].add(i.parent_id)
+        # Add the new relation being created
         rels[c.id].add(p.id)
 
         try:
@@ -1022,25 +1027,36 @@ class CITypeRelationManager(object):
 
         old_parent_attr_ids, old_child_attr_ids = None, None
         existed = cls._get(p.id, c.id)
+        is_new_relation = False
+        
         if existed is not None:
-            old_parent_attr_ids = copy.deepcopy(existed.parent_attr_ids)
-            old_child_attr_ids = copy.deepcopy(existed.child_attr_ids)
+            # Update existing relation
+            old_parent_attr_ids = copy.deepcopy(existed.parent_attr_ids) if existed.parent_attr_ids else None
+            old_child_attr_ids = copy.deepcopy(existed.child_attr_ids) if existed.child_attr_ids else None
             existed = existed.update(relation_type_id=relation_type_id,
                                      constraint=constraint,
                                      parent_attr_ids=parent_attr_ids,
                                      child_attr_ids=child_attr_ids,
+                                     matching_rules=matching_rules,
                                      filter_none=False)
         else:
+            # Create new relation - always create new, don't restore soft-deleted ones
+            is_new_relation = True
             existed = CITypeRelation.create(parent_id=p.id,
                                             child_id=c.id,
                                             relation_type_id=relation_type_id,
                                             parent_attr_ids=parent_attr_ids,
                                             child_attr_ids=child_attr_ids,
+                                            matching_rules=matching_rules,
                                             constraint=constraint)
 
             if current_app.config.get("USE_ACL"):
                 resource_name = cls.acl_resource_name(p.name, c.name)
-                ACLManager().add_resource(resource_name, ResourceTypeEnum.CI_TYPE_RELATION)
+                try:
+                    ACLManager().add_resource(resource_name, ResourceTypeEnum.CI_TYPE_RELATION)
+                except BadRequest:
+                    # Resource already exists (e.g., from previous deletion that wasn't cleaned up yet)
+                    pass
                 ACLManager().grant_resource_to_role(resource_name,
                                                     RoleEnum.CMDB_READ_ALL,
                                                     ResourceTypeEnum.CI_TYPE_RELATION,
@@ -1049,10 +1065,35 @@ class CITypeRelationManager(object):
                                                     current_user.username,
                                                     ResourceTypeEnum.CI_TYPE_RELATION)
 
-        if ((parent_attr_ids and parent_attr_ids != old_parent_attr_ids) or
-                (child_attr_ids and child_attr_ids != old_child_attr_ids)):
+        old_matching_rules = copy.deepcopy(existed.matching_rules) if existed and existed.matching_rules else None
+        old_parent_attr_ids = old_parent_attr_ids if existed else None
+        old_child_attr_ids = old_child_attr_ids if existed else None
+        
+        # Rebuild relationships if:
+        # 1. Creating new relationship with attribute matching (parent_attr_ids/child_attr_ids)
+        # 2. Updating attribute matching configuration
+        # 3. Updating matching_rules
+        should_rebuild = False
+        if parent_attr_ids and child_attr_ids:
+            # New relationship with attribute matching OR updating attribute matching
+            if is_new_relation or (parent_attr_ids != old_parent_attr_ids or child_attr_ids != old_child_attr_ids):
+                should_rebuild = True
+        if matching_rules and matching_rules != old_matching_rules:
+            should_rebuild = True
+        
+        if should_rebuild:
             from api.tasks.cmdb import rebuild_relation_for_attribute_changed
+            current_app.logger.info(
+                f"Triggering rebuild_relation_for_attribute_changed for CI type relation {existed.id} "
+                f"(parent={p.id}, child={c.id}, is_new={is_new_relation}, "
+                f"parent_attr_ids={parent_attr_ids}, child_attr_ids={child_attr_ids})"
+            )
             rebuild_relation_for_attribute_changed.apply_async(args=(existed.to_dict(), current_user.uid))
+        else:
+            current_app.logger.info(
+                f"Not rebuilding CI relations for CI type relation {existed.id} "
+                f"(parent_attr_ids={parent_attr_ids}, child_attr_ids={child_attr_ids}, matching_rules={matching_rules})"
+            )
 
         CITypeHistoryManager.add(CITypeOperateType.ADD_RELATION, p.id,
                                  change=dict(parent=p.to_dict(), child=c.to_dict(), relation_type_id=relation_type_id))
@@ -1063,18 +1104,16 @@ class CITypeRelationManager(object):
     def delete(cls, _id):
         ctr = (CITypeRelation.get_by_id(_id) or
                abort(404, ErrFormat.ci_type_relation_not_found.format("id={}".format(_id))))
+        
+        # Soft delete the type relation immediately and commit
         ctr.soft_delete()
+        # Ensure commit is complete before triggering background task
+        from api.extensions import db
+        db.session.commit()
 
-        CITypeHistoryManager.add(CITypeOperateType.DELETE_RELATION, ctr.parent_id,
-                                 change=dict(parent_id=ctr.parent.to_dict(), child=ctr.child.to_dict(),
-                                             relation_type_id=ctr.relation_type_id))
-
-        if current_app.config.get("USE_ACL"):
-            p = CITypeManager.check_is_existed(ctr.parent_id)
-            c = CITypeManager.check_is_existed(ctr.child_id)
-
-            resource_name = cls.acl_resource_name(p.name, c.name)
-            ACLManager().del_resource(resource_name, ResourceTypeEnum.CI_TYPE_RELATION)
+        # Process cascade delete, history and ACL in background
+        from api.tasks.cmdb import ci_type_relation_cleanup_deleted
+        ci_type_relation_cleanup_deleted.apply_async(args=(_id,), queue=CMDB_QUEUE)
 
     @classmethod
     def delete_2(cls, parent, child):

@@ -300,17 +300,25 @@ class CITypeHistoryManager(object):
         return numfound, result
 
     @staticmethod
-    def add(operate_type, type_id, attr_id=None, trigger_id=None, unique_constraint_id=None, change=None, rc_id=None):
+    def add(operate_type, type_id, attr_id=None, trigger_id=None, unique_constraint_id=None, change=None, rc_id=None, uid=None):
         if type_id is None and attr_id is not None:
             from api.models.cmdb import CITypeAttribute
             type_ids = [i.type_id for i in CITypeAttribute.get_by(attr_id=attr_id, to_dict=False)]
         else:
             type_ids = [type_id]
 
+        # Use provided uid, or current_user.uid if available, or None
+        if uid is None:
+            try:
+                from flask_login import current_user
+                uid = current_user.uid if hasattr(current_user, 'uid') else None
+            except:
+                uid = None
+
         for _type_id in type_ids:
             payload = dict(operate_type=operate_type,
                            type_id=_type_id,
-                           uid=current_user.uid,
+                           uid=uid,
                            attr_id=attr_id,
                            trigger_id=trigger_id,
                            rc_id=rc_id,

@@ -9,7 +9,14 @@
     :bodyStyle="{ padding: '24px 12px' }"
     :placement="placement"
   >
-    <ResourceSearch ref="resourceSearch" :fromCronJob="true" :type="type" :typeId="typeId" @copySuccess="copySuccess" />
+    <ResourceSearch
+      ref="resourceSearch"
+      :fromCronJob="true"
+      :type="type"
+      :typeId="typeId"
+      @copySuccess="copySuccess"
+      @selectCI="handleSelectCI"
+    />
   </CustomDrawer>
 </template>
 
@@ -46,6 +53,11 @@ export default {
     },
     copySuccess(text) {
       this.$emit('copySuccess', text)
+      this.handleClose()
+    },
+    handleSelectCI(ci) {
+      // Emit CI object directly instead of query string
+      this.$emit('selectCI', ci)
       this.handleClose()
     },
   },

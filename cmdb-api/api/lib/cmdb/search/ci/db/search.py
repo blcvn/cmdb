@@ -758,12 +758,10 @@ class Search(object):
                     current_app.logger.warning(f"Invalid attribute ID: {attr.id}")
                     continue
                 
-                # Use parameterized query for attr_id, but table_name and query_sql are validated above
-                facet_query = FACET_QUERY.format(table_name)
-                result = db.session.execute(
-                    text(facet_query), 
-                    {"query_sql": self.query_sql, "attr_id": attr_id}
-                ).fetchall()
+                # Format all placeholders: {0}=table_name, {1}=query_sql, {2:d}=attr_id
+                # table_name and query_sql are validated above for security
+                facet_query = FACET_QUERY.format(table_name, self.query_sql, attr_id)
+                result = db.session.execute(text(facet_query)).fetchall()
                 facet[k] = result
 
         facet_result = dict()

@@ -7,7 +7,7 @@ from flask import abort
 from flask import current_app
 from flask import request
 
-from api.lib.cmdb.cache import CITypeCache
+from api.lib.cmdb.cache import AttributeCache, CITypeCache
 from api.lib.cmdb.ci import CIManager
 from api.lib.cmdb.ci import CIRelationManager
 from api.lib.cmdb.const import ExistPolicy
@@ -16,6 +16,7 @@ from api.lib.cmdb.const import RetKey
 from api.lib.cmdb.perms import has_perm_for_ci
 from api.lib.cmdb.search import SearchError
 from api.lib.cmdb.search.ci import search as ci_search
+from api.lib.cmdb.utils import TableMap, ValueTypeMap
 from api.lib.decorator import args_required
 from api.lib.perm.acl.acl import has_perm_from_args
 from api.lib.utils import get_page
@@ -23,6 +24,8 @@ from api.lib.utils import get_page_size
 from api.lib.utils import handle_arg_list
 from api.models.cmdb import CI
 from api.resource import APIView
+from api.extensions import db
+from sqlalchemy import text
 
 
 class CIsByTypeView(APIView):
@@ -276,3 +279,88 @@ class CIBaselineView(APIView):
             return self.jsonify(**CIManager().rollback(ci_id, before_date))
 
         return self.get(ci_id)
+
+
+class CIDistinctValuesView(APIView):
+    url_prefix = "/ci/distinct_values"
+
+    @args_required("type_id", "attr_name")
+    def get(self):
+        """Get distinct values for an attribute of a CI Type
+        @params:
+            type_id: CI Type ID
+            attr_name: Attribute name
+        """
+        type_id = request.values.get('type_id')
+        attr_name = request.values.get('attr_name')
+
+        try:
+            type_id = int(type_id)
+        except (ValueError, TypeError):
+            return abort(400, "Invalid type_id")
+
+        # Get attribute
+        attr = AttributeCache.get(attr_name)
+        if not attr:
+            return abort(404, f"Attribute '{attr_name}' not found")
+
+        # Get CI Type
+        ci_type = CITypeCache.get(type_id)
+        if not ci_type:
+            return abort(404, f"CI Type ID {type_id} not found")
+
+        # Build query to get distinct values
+        table_map = TableMap(attr=attr)
+        table_name = table_map.table_name
+        
+        # Validate table name for security
+        allowed_tables = {
+            'c_value_0', 'c_value_1', 'c_value_2', 'c_value_3', 
+            'c_value_4', 'c_value_5', 'c_value_6', 'c_value_texts',
+            'c_value_index_texts', 'c_value_index_integers', 
+            'c_value_index_floats', 'c_value_index_datetime', 'c_value_json'
+        }
+        if table_name not in allowed_tables:
+            return abort(400, "Invalid table name: {}".format(table_name))
+
+        # Query distinct values for this attribute and CI Type
+        # Use format() instead of f-string for table_name (validated above)
+        distinct_query = """
+            SELECT DISTINCT {}.value
+            FROM {}
+            INNER JOIN c_cis ON {}.ci_id = c_cis.id
+            WHERE {}.attr_id = :attr_id
+              AND c_cis.type_id = :type_id
+              AND c_cis.deleted = 0
+              AND {}.value IS NOT NULL
+              AND {}.value != ''
+            ORDER BY {}.value
+        """.format(table_name, table_name, table_name, table_name, table_name, table_name, table_name)
+
+        try:
+            result = db.session.execute(
+                text(distinct_query),
+                {'attr_id': attr.id, 'type_id': type_id}
+            ).fetchall()
+            
+            # Serialize values based on value type
+            distinct_values = []
+            seen_values = set()
+            for row in result:
+                value = row[0]
+                if value is not None:
+                    serialized_value = ValueTypeMap.serialize[attr.value_type](value)
+                    # Convert to string for comparison to avoid duplicates
+                    value_str = str(serialized_value)
+                    if value_str not in seen_values:
+                        seen_values.add(value_str)
+                        distinct_values.append(serialized_value)
+            
+            return self.jsonify(
+                type_id=type_id,
+                attr_name=attr_name,
+                values=sorted(distinct_values, key=lambda x: str(x))
+            )
+        except Exception as e:
+            current_app.logger.error("Error getting distinct values: {}".format(str(e)))
+            return abort(500, "Error getting distinct values: {}".format(str(e)))

@@ -16,7 +16,11 @@ from flask import request
 from flask.blueprints import Blueprint
 from flask.cli import click
 from flask.json.provider import DefaultJSONProvider
-from flask_babel.speaklater import LazyString
+try:
+    from flask_babel.speaklater import LazyString
+except ImportError:
+    # Flask-Babel 4.0+ moved LazyString
+    from flask_babel import LazyString
 
 import api.views.entry
 from api.extensions import (bcrypt, babel, cache, celery, cors, db, es, login_manager, migrate, rd)
@@ -155,6 +159,13 @@ def register_error_handlers(app):
     def render_error(error):
         """Render error template."""
         import traceback
+        # Log the requested URL for 404 errors to help with debugging
+        if hasattr(error, 'code') and error.code == 404:
+            try:
+                app.logger.error("404 Not Found - Requested URL: %s %s", request.method, request.url)
+            except RuntimeError:
+                # Request context not available
+                app.logger.error("404 Not Found - Request context not available")
         app.logger.error(traceback.format_exc())
         error_code = getattr(error, "code", 500)
         if not str(error_code).isdigit():

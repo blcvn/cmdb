@@ -108,3 +108,23 @@ export function revokeTopologyView(viewId, rid, data) {
     data: data
   })
 }
+
+export function getFilteredGraph(rootCiId, filterRules) {
+  return axios({
+    url: `/v0.1/ci_relations/${rootCiId}/filtered_graph`,
+    method: 'POST',
+    data: { filter_rules: filterRules }
+  })
+}
+
+export function getStatsByType(typeId, page = 1, perPage = 20) {
+  return axios({
+    url: `/v0.1/ci_relations/stats_by_type`,
+    method: 'GET',
+    params: {
+      type_id: typeId,
+      page,
+      per_page: perPage
+    }
+  })
+}

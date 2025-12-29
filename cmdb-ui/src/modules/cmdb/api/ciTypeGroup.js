@@ -6,7 +6,8 @@ export function getCITypeGroups(params) {
     return axios({
         url: `${urlPrefix}/ci_types/groups`,
         method: 'GET',
-        params: params
+        params: params,
+        timeout: 30000 // 30 seconds timeout for loading CI type groups
     })
 }
 
@@ -38,7 +39,8 @@ export function getCITypeGroupsConfig(params) {
     return axios({
         url: `${urlPrefix}/ci_types/groups/config`,
         method: 'GET',
-        params: params
+        params: params,
+        timeout: 30000 // 30 seconds timeout for loading CI type groups config
     })
 }
 

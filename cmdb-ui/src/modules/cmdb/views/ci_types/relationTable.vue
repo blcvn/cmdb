@@ -66,9 +66,18 @@
             <div
               :key="item.id"
               v-if="item.parentAttrId && item.childAttrId"
+              :style="{ marginBottom: '6px', padding: '4px 0', lineHeight: '1.5' }"
             >
-              {{ getAttrNameById(row.isParent ? row.attributes : attributes, item.parentAttrId) }}=>
-              {{ getAttrNameById(row.isParent ? attributes : row.attributes, item.childAttrId) }}
+              <span :style="{ fontWeight: '500', marginRight: '4px' }">
+                {{ getAttrNameById(row.isParent ? row.attributes : attributes, item.parentAttrId) }}
+              </span>
+              <span :style="{ margin: '0 6px', color: '#1890ff' }">→</span>
+              <span :style="{ fontWeight: '500', marginRight: '8px' }">
+                {{ getAttrNameById(row.isParent ? attributes : row.attributes, item.childAttrId) }}
+              </span>
+              <a-tag v-if="item.operator && item.operator !== 'equals'" color="blue" size="small">
+                {{ item.operator }}
+              </a-tag>
             </div>
           </template>
         </template>
@@ -83,9 +92,10 @@
               size="small"
               v-model="item.parentAttrId"
               :getPopupContainer="(trigger) => trigger.parentNode"
-              :style="{ width: '100px' }"
+              :style="{ width: '120px', minWidth: '120px' }"
               show-search
               optionFilterProp="title"
+              :placeholder="'Parent'"
             >
               <a-select-option
                 v-for="attr in filterAttributes(row.isParent ? row.attributes : attributes)"
@@ -96,15 +106,16 @@
                 {{ attr.alias || attr.name }}
               </a-select-option>
             </a-select>
-            <span class="table-attribute-row-link">=></span>
+            <span class="table-attribute-row-link" :style="{ margin: '0 6px', fontSize: '14px' }">→</span>
             <a-select
               allowClear
               size="small"
               v-model="item.childAttrId"
               :getPopupContainer="(trigger) => trigger.parentNode"
-              :style="{ width: '100px' }"
+              :style="{ width: '120px', minWidth: '120px' }"
               show-search
               optionFilterProp="title"
+              :placeholder="'Child'"
             >
               <a-select-option
                 v-for="attr in filterAttributes(row.isParent ? attributes : row.attributes)"
@@ -127,6 +138,55 @@
             >
               <a-icon type="plus-circle" />
             </a>
+          </div>
+          <!-- Matching Rules in Table Edit -->
+          <div v-if="item.parentAttrId && item.childAttrId" :style="{ marginTop: '10px', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }">
+            <a-row :gutter="8" type="flex" align="middle">
+              <a-col :span="7">
+                <a-select
+                  v-model="item.operator"
+                  placeholder="Operator"
+                  size="small"
+                  :style="{ width: '100%' }"
+                  allowClear
+                >
+                  <a-select-option value="equals">Equals</a-select-option>
+                  <a-select-option value="contains">Contains (parent contains child)</a-select-option>
+                  <a-select-option value="contains_parent">Contains Parent (child contains parent)</a-select-option>
+                  <a-select-option value="in_list">In List</a-select-option>
+                  <a-select-option value="has_one">Has One</a-select-option>
+                  <a-select-option value="compare">Compare</a-select-option>
+                </a-select>
+              </a-col>
+              <a-col :span="8" v-if="item.operator && ['in_list', 'has_one'].includes(item.operator)">
+                <a-input
+                  v-model="item.separator"
+                  placeholder="Separator (multi-char OK)"
+                  size="small"
+                  :style="{ width: '100%' }"
+                >
+                  <a-tooltip slot="suffix" title="Supports multi-character separators">
+                    <a-icon type="info-circle" style="color: rgba(0,0,0,.45)" />
+                  </a-tooltip>
+                </a-input>
+              </a-col>
+              <a-col :span="9" v-if="item.operator === 'in_list'">
+                <a-input-group compact>
+                  <a-input
+                    v-model="item.parentSeparator"
+                    placeholder="Parent Sep"
+                    size="small"
+                    :style="{ width: '50%' }"
+                  />
+                  <a-input
+                    v-model="item.childSeparator"
+                    placeholder="Child Sep"
+                    size="small"
+                    :style="{ width: '50%' }"
+                  />
+                </a-input-group>
+              </a-col>
+            </a-row>
           </div>
         </template>
       </vxe-column>
@@ -153,7 +213,8 @@
       :visible="visible"
       @cancel="onClose"
       @ok="handleSubmit"
-      width="700px"
+      width="900px"
+      :bodyStyle="{ maxHeight: '70vh', overflowY: 'auto' }"
     >
       <a-form :form="form" @submit="handleSubmit" :label-col="{ span: 6 }" :wrapper-col="{ span: 14 }">
         <a-form-item :label="$t('cmdb.ciType.sourceCIType')">
@@ -210,49 +271,117 @@
           <a-row
             v-for="item in modalAttrList"
             :key="item.id"
+            :style="{ marginBottom: '15px', padding: '15px', border: '1px solid #e8e8e8', borderRadius: '4px', backgroundColor: '#fafafa' }"
           >
-            <a-col :span="10">
-              <a-form-item>
-                <a-select
-                  :placeholder="$t('cmdb.ciType.attributeAssociationTip4')"
-                  allowClear
-                  v-model="item.parentAttrId"
-                >
-                  <a-select-option v-for="attr in filterAttributes(attributes)" :key="attr.id">
-                    {{ attr.alias || attr.name }}
-                  </a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :span="2" :style="{ textAlign: 'center' }">
-              =>
-            </a-col>
-            <a-col :span="9">
-              <a-form-item>
-                <a-select
-                  :placeholder="$t('cmdb.ciType.attributeAssociationTip5')"
-                  allowClear
-                  v-model="item.childAttrId"
-                >
-                  <a-select-option v-for="attr in filterAttributes(modalChildAttributes)" :key="attr.id">
-                    {{ attr.alias || attr.name }}
-                  </a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :span="3">
-              <a
-                class="modal-attribute-action"
-                @click="removeModalAttr(item.id)"
-              >
-                <a-icon type="minus-circle" />
-              </a>
-              <a
-                class="modal-attribute-action"
-                @click="addModalAttr"
-              >
-                <a-icon type="plus-circle" />
-              </a>
+            <a-col :span="24">
+              <a-row :gutter="12" :style="{ marginBottom: '10px' }">
+                <a-col :span="9">
+                  <a-form-item label="Parent Attribute" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                    <a-select
+                      :placeholder="$t('cmdb.ciType.attributeAssociationTip4')"
+                      allowClear
+                      v-model="item.parentAttrId"
+                      show-search
+                      option-filter-prop="children"
+                    >
+                      <a-select-option v-for="attr in filterAttributes(attributes)" :key="attr.id" :title="attr.alias || attr.name">
+                        {{ attr.alias || attr.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :span="1" :style="{ textAlign: 'center', lineHeight: '40px', fontSize: '16px', fontWeight: 'bold', color: '#1890ff' }">
+                  →
+                </a-col>
+                <a-col :span="9">
+                  <a-form-item label="Child Attribute" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                    <a-select
+                      :placeholder="$t('cmdb.ciType.attributeAssociationTip5')"
+                      allowClear
+                      v-model="item.childAttrId"
+                      show-search
+                      option-filter-prop="children"
+                    >
+                      <a-select-option v-for="attr in filterAttributes(modalChildAttributes)" :key="attr.id" :title="attr.alias || attr.name">
+                        {{ attr.alias || attr.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :span="5" :style="{ textAlign: 'right', paddingTop: '30px' }">
+                  <a-button
+                    type="danger"
+                    size="small"
+                    icon="minus-circle"
+                    @click="removeModalAttr(item.id)"
+                    :style="{ marginRight: '8px' }"
+                  />
+                  <a-button
+                    type="primary"
+                    size="small"
+                    icon="plus-circle"
+                    @click="addModalAttr"
+                  />
+                </a-col>
+              </a-row>
+              <!-- Matching Rules Configuration -->
+              <a-divider v-if="item.parentAttrId && item.childAttrId" :style="{ margin: '10px 0' }" />
+              <div v-if="item.parentAttrId && item.childAttrId" :style="{ padding: '10px', backgroundColor: '#fff', borderRadius: '4px' }">
+                <a-row :gutter="12">
+                  <a-col :span="8">
+                    <a-form-item label="Matching Operator" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                      <a-select
+                        v-model="item.operator"
+                        placeholder="Select operator (default: equals)"
+                        :style="{ width: '100%' }"
+                        allowClear
+                      >
+                        <a-select-option value="equals">Equals (exact match)</a-select-option>
+                        <a-select-option value="contains">Contains (parent contains child)</a-select-option>
+                        <a-select-option value="contains_parent">Contains Parent (child contains parent)</a-select-option>
+                        <a-select-option value="in_list">In List</a-select-option>
+                        <a-select-option value="has_one">Has One</a-select-option>
+                        <a-select-option value="compare">Compare (numeric)</a-select-option>
+                      </a-select>
+                    </a-form-item>
+                  </a-col>
+                  <a-col :span="8" v-if="item.operator && ['in_list', 'has_one'].includes(item.operator)">
+                    <a-form-item label="Separator (supports multi-char)" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                      <a-input
+                        v-model="item.separator"
+                        placeholder="Default: , (supports multi-character)"
+                        :style="{ width: '100%' }"
+                      >
+                        <a-tooltip slot="suffix" title="Supports multi-character separators, e.g., ', ' or ' || '">
+                          <a-icon type="question-circle" style="color: rgba(0,0,0,.45)" />
+                        </a-tooltip>
+                      </a-input>
+                    </a-form-item>
+                  </a-col>
+                  <a-col :span="8" v-if="item.operator === 'in_list'">
+                    <a-row :gutter="8">
+                      <a-col :span="12">
+                        <a-form-item label="Parent Separator" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                          <a-input
+                            v-model="item.parentSeparator"
+                            placeholder="Default: ,"
+                            :style="{ width: '100%' }"
+                          />
+                        </a-form-item>
+                      </a-col>
+                      <a-col :span="12">
+                        <a-form-item label="Child Separator" :label-col="{ span: 24 }" :wrapper-col="{ span: 24 }">
+                          <a-input
+                            v-model="item.childSeparator"
+                            placeholder="Default: ,"
+                            :style="{ width: '100%' }"
+                          />
+                        </a-form-item>
+                      </a-col>
+                    </a-row>
+                  </a-col>
+                </a-row>
+              </div>
             </a-col>
           </a-row>
         </a-form-item>
@@ -382,11 +511,25 @@ export default {
     handleAttrList(data) {
       const length = Math.min(data?.parent_attr_ids?.length || 0, data.child_attr_ids?.length || 0)
       const parentAndChildAttrList = []
+      const matching_rules = data?.matching_rules || []
+
       for (let i = 0; i < length; i++) {
+        const parentAttrId = data?.parent_attr_ids?.[i]
+        const childAttrId = data?.child_attr_ids?.[i]
+
+        // Find matching rule for this attribute pair
+        const rule = matching_rules.find(r =>
+          r.parent_attr_id === parentAttrId && r.child_attr_id === childAttrId
+        )
+
         parentAndChildAttrList.push({
           id: uuidv4(),
-          parentAttrId: data?.parent_attr_ids?.[i] ?? '',
-          childAttrId: data?.child_attr_ids?.[i] ?? ''
+          parentAttrId: parentAttrId ?? '',
+          childAttrId: childAttrId ?? '',
+          operator: rule?.operator || undefined,
+          separator: rule?.separator || ',',
+          parentSeparator: rule?.parent_separator || undefined,
+          childSeparator: rule?.child_separator || undefined
         })
       }
       return parentAndChildAttrList
@@ -416,7 +559,11 @@ export default {
         {
           id: uuidv4(),
           parentAttrId: undefined,
-          childAttrId: undefined
+          childAttrId: undefined,
+          operator: undefined,
+          separator: ',',
+          parentSeparator: undefined,
+          childSeparator: undefined
         }
       ])
       this.$nextTick(() => {
@@ -447,18 +594,24 @@ export default {
           const {
             parent_attr_ids,
             child_attr_ids,
+            matching_rules,
             validate
           } = this.handleValidateAttrList(this.modalAttrList)
           if (!validate) {
             return
           }
 
-          createRelation(source_ci_type_id, ci_type_id, {
+          const payload = {
             relation_type_id,
             constraint,
             parent_attr_ids,
             child_attr_ids,
-          }).then((res) => {
+          }
+          if (matching_rules && matching_rules.length > 0) {
+            payload.matching_rules = matching_rules
+          }
+
+          createRelation(source_ci_type_id, ci_type_id, payload).then((res) => {
             this.$message.success(this.$t('addSuccess'))
             this.onClose()
             this.getData()
@@ -474,12 +627,40 @@ export default {
      handleValidateAttrList(attrList) {
       const parent_attr_ids = []
       const child_attr_ids = []
+      const matching_rules = []
+
       attrList.map((attr) => {
-        if (attr.parentAttrId) {
+        if (attr.parentAttrId && attr.childAttrId) {
           parent_attr_ids.push(attr.parentAttrId)
-        }
-        if (attr.childAttrId) {
           child_attr_ids.push(attr.childAttrId)
+
+          // Build matching rule if operator is specified
+          if (attr.operator && attr.operator !== 'equals') {
+            const rule = {
+              parent_attr_id: attr.parentAttrId,
+              child_attr_id: attr.childAttrId,
+              operator: attr.operator
+            }
+
+            // Add separator if needed
+            if (['in_list', 'has_one'].includes(attr.operator)) {
+              if (attr.separator) {
+                rule.separator = attr.separator
+              }
+            }
+
+            // Add parent/child separators for in_list
+            if (attr.operator === 'in_list') {
+              if (attr.parentSeparator) {
+                rule.parent_separator = attr.parentSeparator
+              }
+              if (attr.childSeparator) {
+                rule.child_separator = attr.childSeparator
+              }
+            }
+
+            matching_rules.push(rule)
+          }
         }
       })
 
@@ -493,7 +674,8 @@ export default {
       return {
         validate: true,
         parent_attr_ids,
-        child_attr_ids
+        child_attr_ids,
+        matching_rules: matching_rules.length > 0 ? matching_rules : undefined
       }
     },
 
@@ -522,19 +704,37 @@ export default {
         const tableAttrList = []
 
         const length = Math.min(row?.parent_attr_ids?.length || 0, row.child_attr_ids?.length || 0)
+        const matching_rules = row?.matching_rules || []
+
         if (length) {
           for (let i = 0; i < length; i++) {
+            const parentAttrId = row?.parent_attr_ids?.[i]
+            const childAttrId = row?.child_attr_ids?.[i]
+
+            // Find matching rule for this attribute pair
+            const rule = matching_rules.find(r =>
+              r.parent_attr_id === parentAttrId && r.child_attr_id === childAttrId
+            )
+
             tableAttrList.push({
               id: uuidv4(),
-              parentAttrId: row?.parent_attr_ids?.[i] ?? undefined,
-              childAttrId: row?.child_attr_ids?.[i] ?? undefined
+              parentAttrId: parentAttrId ?? undefined,
+              childAttrId: childAttrId ?? undefined,
+              operator: rule?.operator || undefined,
+              separator: rule?.separator || ',',
+              parentSeparator: rule?.parent_separator || undefined,
+              childSeparator: rule?.child_separator || undefined
             })
           }
         } else {
           tableAttrList.push({
             id: uuidv4(),
             parentAttrId: undefined,
-            childAttrId: undefined
+            childAttrId: undefined,
+            operator: undefined,
+            separator: ',',
+            parentSeparator: undefined,
+            childSeparator: undefined
           })
         }
         this.$set(this, 'tableAttrList', tableAttrList)
@@ -555,6 +755,7 @@ export default {
       const {
         parent_attr_ids,
         child_attr_ids,
+        matching_rules,
         validate
       } = this.handleValidateAttrList(this.tableAttrList)
       if (!validate) {
@@ -562,12 +763,17 @@ export default {
         return
       }
 
-      await createRelation(row.isParent ? childrenId : parentId, row.isParent ? parentId : childrenId, {
+      const payload = {
         relation_type_id,
         constraint,
         parent_attr_ids,
         child_attr_ids,
-      }).finally(async () => {
+      }
+      if (matching_rules && matching_rules.length > 0) {
+        payload.matching_rules = matching_rules
+      }
+
+      await createRelation(row.isParent ? childrenId : parentId, row.isParent ? parentId : childrenId, payload).finally(async () => {
         await this.getData()
         this.isContinueCloseEdit = false
 
@@ -608,7 +814,11 @@ export default {
       this.tableAttrList.push({
         id: uuidv4(),
         parentAttrId: undefined,
-        childAttrId: undefined
+        childAttrId: undefined,
+        operator: undefined,
+        separator: ',',
+        parentSeparator: undefined,
+        childSeparator: undefined
       })
     },
     removeTableAttr(id) {
@@ -626,7 +836,11 @@ export default {
       this.modalAttrList.push({
         id: uuidv4(),
         parentAttrId: undefined,
-        childAttrId: undefined
+        childAttrId: undefined,
+        operator: undefined,
+        separator: ',',
+        parentSeparator: undefined,
+        childSeparator: undefined
       })
     },
 
@@ -659,18 +873,32 @@ export default {
 .table-attribute-row {
   display: inline-flex;
   align-items: center;
-  margin-top: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
 
   &:last-child {
-    margin-bottom: 5px;
+    margin-bottom: 8px;
   }
 
   &-link {
-    margin: 0 5px;
+    margin: 0 6px;
+    font-size: 14px;
+    color: #1890ff;
+    font-weight: 500;
   }
 
   &-action {
-    margin-left: 5px;
+    margin-left: 8px;
+    cursor: pointer;
+    color: #1890ff;
+    font-size: 16px;
+    transition: color 0.3s;
+
+    &:hover {
+      color: #40a9ff;
+    }
   }
 }
 

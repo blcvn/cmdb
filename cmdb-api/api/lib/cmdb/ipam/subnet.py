@@ -115,10 +115,10 @@ class SubnetManager(object):
 
         response, _, _, _, _, _ = SearchFromDB(
             "_type:({})".format(";".join(map(str, ci_types))),
-            ci_ids=list(ids),
-            count=1000000,
-            fl=list(set(fl + [SubnetBuiltinAttributes.CIDR])),
-            parent_node_perm_passed=True).search()
+                                               ci_ids=list(ids),
+                                               count=1000000,
+                                               fl=list(set(fl + [SubnetBuiltinAttributes.CIDR])),
+                                               parent_node_perm_passed=True).search()
         id2ci = {i['_id']: i for i in response}
 
         def _build_tree(_tree, parent_id=None):
