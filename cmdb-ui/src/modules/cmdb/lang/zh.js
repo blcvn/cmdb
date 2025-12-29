@@ -7,7 +7,7 @@ const cmdb_zh = {
     menu: {
         views: '视图',
         topologyView: '拓扑视图',
-        tableLayerView: '表格层视图',
+        graphView: '关系图视图',
         resources: '资源',
         config: '配置',
         backend: '管理',

@@ -1,0 +1,463 @@
+{
+  "name": "VNPAY CHIHO",
+  "node": [
+    {
+      "name": "VNPCHIHO",
+      "alias": "chiho",
+      "layer": "Application",
+      "site": null,
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Application",
+        "ci_alias": "application",
+        "ci_icon": "caise-app",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO-API",
+      "alias": "chiho-api",
+      "layer": "Application",
+      "site": null,
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Application Service",
+        "ci_alias": "application_service",
+        "ci_icon": "caise-app-service",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO-WEB",
+      "alias": "chiho-web",
+      "layer": "Application",
+      "site": null,
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Application Service",
+        "ci_alias": "application_service",
+        "ci_icon": "caise-app-service",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO KAFKA DC01",
+      "alias": "chiho-kafka-dc-01",
+      "layer": "Middleware",
+      "site": "VNPAY",
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Queue",
+        "ci_alias": "queue",
+        "ci_icon": "caise-queue",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO KAFKA DC01",
+      "alias": "chiho-kafka-gds-01",
+      "layer": "Middleware",
+      "site": "GDS",
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Queue",
+        "ci_alias": "queue",
+        "ci_icon": "caise-queue",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO REDIS DC01",
+      "alias": "chiho-redis-dc-01",
+      "layer": "Middleware",
+      "site": "VNPAY",
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Cache",
+        "ci_alias": "cache",
+        "ci_icon": "caise-cache",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO REDIS DC01",
+      "alias": "chiho-redis-gds-01",
+      "layer": "Middleware",
+      "site": "GDS",
+      "metadata": {},
+      "ci_type": {
+        "ci_name": "Cache",
+        "ci_alias": "cache",
+        "ci_icon": "caise-cache",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO NAMESPACE",
+      "alias": "namespace-chiho-vnp",
+      "layer": "System",
+      "site": "VNPAY",
+      "metadata": {
+        "purpose": "Kubernetes Namespace"
+      },
+      "ci_type": {
+        "ci_name": "Namespace",
+        "ci_alias": "namespace",
+        "ci_icon": "caise-namespace",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "CHIHO NAMESPACE",
+      "alias": "namespace-chiho-gds",
+      "layer": "System",
+      "site": "GDS",
+      "metadata": {
+        "purpose": "Kubernetes Namespace"
+      },
+      "ci_type": {
+        "ci_name": "Namespace",
+        "ci_alias": "namespace",
+        "ci_icon": "caise-namespace",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VNP-PROD CLUSTER",
+      "alias": "cluster-vnp-prod",
+      "layer": "System",
+      "site": "VNPAY",
+      "metadata": {
+        "purpose": "Production Kubernetes Cluster"
+      },
+      "ci_type": {
+        "ci_name": "Cluster",
+        "ci_alias": "cluster",
+        "ci_icon": "caise-cluster",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "GDS-PROD CLUSTER",
+      "alias": "cluster-gds-prod",
+      "layer": "System",
+      "site": "GDS",
+      "metadata": {
+        "purpose": "Production Kubernetes Cluster"
+      },
+      "ci_type": {
+        "ci_name": "Cluster",
+        "ci_alias": "cluster",
+        "ci_icon": "caise-cluster",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VM-001",
+      "alias": "vm-001",
+      "layer": "System",
+      "site": "VNPAY",
+      "metadata": {
+        "purpose": "Virtual Machine",
+        "ip": "10.122.20.1"
+      },
+      "ci_type": {
+        "ci_name": "Virtual Machine",
+        "ci_alias": "virtual_machine",
+        "ci_icon": "caise-virtual-machine",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VM-002",
+      "alias": "vm-002",
+      "layer": "System",
+      "site": "GDS",
+      "metadata": {
+        "purpose": "Virtual Machine",
+        "ip": "10.122.20.2"
+      },
+      "ci_type": {
+        "ci_name": "Virtual Machine",
+        "ci_alias": "virtual_machine",
+        "ci_icon": "caise-virtual-machine",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VM-003",
+      "alias": "vm-003",
+      "layer": "System",
+      "site": "VNPAY",
+      "metadata": {
+        "purpose": "Virtual Machine",
+        "ip": "10.122.20.3"
+      },
+      "ci_type": {
+        "ci_name": "Virtual Machine",
+        "ci_alias": "virtual_machine",
+        "ci_icon": "caise-virtual-machine",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VM-004",
+      "alias": "vm-004",
+      "layer": "System",
+      "site": "GDS",
+      "metadata": {
+        "purpose": "Virtual Machine",
+        "ip": "10.122.20.4"
+      },
+      "ci_type": {
+        "ci_name": "Virtual Machine",
+        "ci_alias": "virtual_machine",
+        "ci_icon": "caise-virtual-machine",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "VM-005",
+      "alias": "vm-005",
+      "layer": "System",
+      "site": "VNPAY",
+      "metadata": {
+        "purpose": "Virtual Machine",
+        "ip": "10.122.20.5"
+      },
+      "ci_type": {
+        "ci_name": "Virtual Machine",
+        "ci_alias": "virtual_machine",
+        "ci_icon": "caise-virtual-machine",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "10.122.20.1",
+      "alias": "ip-10-122-20-1",
+      "layer": "Infrastructure",
+      "site": "VNPAY",
+      "metadata": {
+        "ip_address": "10.122.20.1"
+      },
+      "ci_type": {
+        "ci_name": "IP Address",
+        "ci_alias": "ip_address",
+        "ci_icon": "caise-ip",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "10.122.20.2",
+      "alias": "ip-10-122-20-2",
+      "layer": "Infrastructure",
+      "site": "GDS",
+      "metadata": {
+        "ip_address": "10.122.20.2"
+      },
+      "ci_type": {
+        "ci_name": "IP Address",
+        "ci_alias": "ip_address",
+        "ci_icon": "caise-ip",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "10.122.20.3",
+      "alias": "ip-10-122-20-3",
+      "layer": "Infrastructure",
+      "site": "VNPAY",
+      "metadata": {
+        "ip_address": "10.122.20.3"
+      },
+      "ci_type": {
+        "ci_name": "IP Address",
+        "ci_alias": "ip_address",
+        "ci_icon": "caise-ip",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "10.122.20.4",
+      "alias": "ip-10-122-20-4",
+      "layer": "Infrastructure",
+      "site": "GDS",
+      "metadata": {
+        "ip_address": "10.122.20.4"
+      },
+      "ci_type": {
+        "ci_name": "IP Address",
+        "ci_alias": "ip_address",
+        "ci_icon": "caise-ip",
+        "ci_color": "#000000"
+      }
+    },
+    {
+      "name": "10.122.20.5",
+      "alias": "ip-10-122-20-5",
+      "layer": "Infrastructure",
+      "site": "VNPAY",
+      "metadata": {
+        "ip_address": "10.122.20.5"
+      },
+      "ci_type": {
+        "ci_name": "IP Address",
+        "ci_alias": "ip_address",
+        "ci_icon": "caise-ip",
+        "ci_color": "#000000"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "chiho",
+      "to": "chiho-api",
+      "text": "Contains",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho",
+      "to": "chiho-web",
+      "text": "Contains",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-web",
+      "to": "chiho-redis-dc-01",
+      "text": "Uses for session",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-api",
+      "to": "chiho-kafka-dc-01",
+      "text": "Publishes to",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-api",
+      "to": "chiho-kafka-gds-01",
+      "text": "Publishes to",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-api",
+      "to": "chiho-redis-dc-01",
+      "text": "Uses for caching",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-api",
+      "to": "chiho-redis-gds-01",
+      "text": "Uses for caching",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-kafka-dc-01",
+      "to": "namespace-chiho-vnp",
+      "text": "Runs in",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-kafka-gds-01",
+      "to": "namespace-chiho-gds",
+      "text": "Runs in",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-redis-dc-01",
+      "to": "namespace-chiho-vnp",
+      "text": "Runs in",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "chiho-redis-gds-01",
+      "to": "namespace-chiho-gds",
+      "text": "Runs in",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "namespace-chiho-vnp",
+      "to": "cluster-vnp-prod",
+      "text": "Belongs to",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "namespace-chiho-gds",
+      "to": "cluster-gds-prod",
+      "text": "Belongs to",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "cluster-vnp-prod",
+      "to": "vm-001",
+      "text": "Runs on",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "cluster-vnp-prod",
+      "to": "vm-003",
+      "text": "Runs on",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "cluster-vnp-prod",
+      "to": "vm-005",
+      "text": "Runs on",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "cluster-gds-prod",
+      "to": "vm-002",
+      "text": "Runs on",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "cluster-gds-prod",
+      "to": "vm-004",
+      "text": "Runs on",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "vm-001",
+      "to": "ip-10-122-20-1",
+      "text": "Has IP",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "vm-002",
+      "to": "ip-10-122-20-2",
+      "text": "Has IP",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "vm-003",
+      "to": "ip-10-122-20-3",
+      "text": "Has IP",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "vm-004",
+      "to": "ip-10-122-20-4",
+      "text": "Has IP",
+      "disableDefaultClickEffect": false
+    },
+    {
+      "from": "vm-005",
+      "to": "ip-10-122-20-5",
+      "text": "Has IP",
+      "disableDefaultClickEffect": false
+    }
+  ],
+  "layer": [
+    "Application",
+    "Middleware",
+    "System",
+    "Infrastructure",
+    "Network"
+  ],
+  "site": [
+    "VNPAY",
+    "GDS",
+    "CMC"
+  ]
+}
