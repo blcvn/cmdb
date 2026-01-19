@@ -78,6 +78,7 @@ class ResourceTypeEnum(BaseEnum):
     CI_FILTER = "CIFilter"  # read
     PAGE = "page"  # read
     TOPOLOGY_VIEW = "TopologyView"  # read/update/delete/grant
+    REPORT = "Report"  # read/export
 
 
 class PermEnum(BaseEnum):

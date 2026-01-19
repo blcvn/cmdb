@@ -41,6 +41,37 @@ ui: ## start ui server
 	cd cmdb-ui && yarn run serve
 .PHONY: ui
 
+##@ Reporting Module
+
+reporting-venv: ## create reporting-api virtual environment
+	cd reporting-api && \
+	if [ ! -d ".venv" ]; then \
+		python3 -m venv .venv; \
+	fi && \
+	.venv/bin/pip install --upgrade pip && \
+	.venv/bin/pip install -r requirements.txt
+.PHONY: reporting-venv
+
+reporting-deps: reporting-venv ## install reporting module dependencies
+	cd reporting-ui && yarn install --ignore-engines && cd ..
+.PHONY: reporting-deps
+
+reporting-api: ## start reporting api server
+	cd reporting-api && .venv/bin/python run.py
+.PHONY: reporting-api
+
+reporting-ui: ## start reporting ui server
+	cd reporting-ui && yarn serve
+.PHONY: reporting-ui
+
+reporting-worker: ## start reporting async tasks worker
+	cd reporting-api && .venv/bin/celery -A celery_worker.celery_app worker -E -Q reporting_queue --autoscale=5,2 --logfile=reporting_worker.log
+.PHONY: reporting-worker
+
+reporting-migrate: ## run reporting database migrations
+	mysql -u ${MYSQL_USER:-cmdb} -p${MYSQL_PASSWORD:-123456} ${MYSQL_DATABASE:-cmdb} < reporting-api/migrations/reporting_tables.sql
+.PHONY: reporting-migrate
+
 clean: ## remove unwanted files like .pyc's
 	pipenv run flask clean
 .PHONY: clean

@@ -65,7 +65,11 @@ class PreferenceManager(object):
         for ci_type in types:
             type_id = ci_type.type_id
             type_ids.add(type_id)
-            type_dict = CITypeCache.get(type_id).to_dict()
+            ci_type_obj = CITypeCache.get(type_id)
+            if ci_type_obj is None:
+                # Skip if CI Type not found (may have been deleted)
+                continue
+            type_dict = ci_type_obj.to_dict()
             if type_id not in type2group:
                 other_types.append(type_dict)
             else:
@@ -81,7 +85,7 @@ class PreferenceManager(object):
         tree_types = sorted(tree_types, key=lambda x: {i.type_id: idx for idx, i in enumerate(
             ci_type_order) if i.is_tree}.get(x.type_id, 1))
 
-        tree_types = [CITypeCache.get(_type.type_id).to_dict() for _type in tree_types]
+        tree_types = [CITypeCache.get(_type.type_id).to_dict() for _type in tree_types if CITypeCache.get(_type.type_id) is not None]
         for _type in tree_types:
             type_ids.add(_type['id'])
 
@@ -234,7 +238,10 @@ class PreferenceManager(object):
 
         for item in res:
             if item["levels"]:
-                ci_type = CITypeCache.get(item['type_id']).to_dict()
+                ci_type_obj = CITypeCache.get(item['type_id'])
+                if ci_type_obj is None:
+                    continue  # Skip if CI Type not found
+                ci_type = ci_type_obj.to_dict()
                 attr_filter = CIFilterPermsCRUD.get_attr_filter(ci_type['id'])
                 ci_type.pop('id', None)
                 ci_type.pop('created_at', None)
@@ -319,7 +326,7 @@ class PreferenceManager(object):
                 _find_parent(_l)
 
             for node_id in node2show_types:
-                node2show_types[node_id] = [CITypeCache.get(i).to_dict() for i in set(node2show_types[node_id])]
+                node2show_types[node_id] = [CITypeCache.get(i).to_dict() for i in set(node2show_types[node_id]) if CITypeCache.get(i) is not None]
 
             topo_flatten = list(toposort.toposort_flatten(topo))
             level2constraint = {}
@@ -343,10 +350,14 @@ class PreferenceManager(object):
                                      leaf2show_types=leaf2show_types,
                                      node2show_types=node2show_types,
                                      show_types=[CITypeCache.get(j).to_dict()
-                                                 for i in leaf2show_types.values() for j in i])
+                                                 for i in leaf2show_types.values() for j in i
+                                                 if CITypeCache.get(j) is not None])
 
         for type_id in id2type:
-            id2type[type_id] = CITypeCache.get(type_id).to_dict()
+            ci_type_obj = CITypeCache.get(type_id)
+            if ci_type_obj is None:
+                continue  # Skip if CI Type not found
+            id2type[type_id] = ci_type_obj.to_dict()
             id2type[type_id]['unique_name'] = AttributeCache.get(id2type[type_id]['unique_id']).name
             if id2type[type_id]['show_id']:
                 show_attr = AttributeCache.get(id2type[type_id]['show_id'])

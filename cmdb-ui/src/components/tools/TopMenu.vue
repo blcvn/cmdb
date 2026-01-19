@@ -8,6 +8,14 @@
     >
       {{ route.meta.title }}
     </span>
+    <!-- Reporting button -->
+    <span
+      class="reporting-menu-item"
+      @click="goToReporting"
+    >
+      <a-icon type="bar-chart" />
+      <span>Reports</span>
+    </span>
     <!-- <a-popover v-model="visible" placement="bottom" trigger="click" overlayClassName="top-menu-dropdown">
       <template slot="content">
         <div class="title">
@@ -96,6 +104,20 @@ export default {
         // this.current = route.name
       }
     },
+    goToReporting() {
+      // Check if user is logged in
+      const token = this.$store.state.user.token || localStorage.getItem('Access-Token')
+      const isLogin = this.$store.state.user.authed || !!token
+
+      if (!isLogin) {
+        // Not logged in, redirect to login with redirect parameter
+        const reportingUrl = window.location.origin + '/reporting'
+        this.$router.push(`/user/login?redirect=${encodeURIComponent(reportingUrl)}`)
+      } else {
+        // Logged in, redirect to reporting (via nginx)
+        window.location.href = '/reporting'
+      }
+    },
   },
 }
 </script>
@@ -137,6 +159,23 @@ export default {
     height: 0;
     overflow: hidden;
     visibility: hidden;
+  }
+  .reporting-menu-item {
+    cursor: pointer;
+    padding: 4px 10px;
+    margin: 0 5px;
+    color: @layout-header-font-color;
+    height: @layout-header-height;
+    line-height: @layout-header-line-height;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    .anticon {
+      font-size: 14px;
+    }
+    &:hover {
+      background-color: #f0f2f5;
+    }
   }
 }
 
