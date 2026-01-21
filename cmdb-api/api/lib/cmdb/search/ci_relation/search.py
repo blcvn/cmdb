@@ -82,6 +82,7 @@ class Search(object):
     def _get_ids(self, ids):
 
         merge_ids = []
+        seen_ids = set()  # Track IDs to avoid duplicates
         key = []
         _tmp = []
         for level in range(1, sorted(self.level)[-1] + 1):
@@ -116,27 +117,61 @@ class Search(object):
                                          int(i[0]) in id_filter_limit)] for idx, x in enumerate(res)]
 
             ids = [j for i in _tmp for j in i]
+            # Deduplicate ids for this level
+            ids = list(set(ids))
 
             if level in self.level:
-                merge_ids.extend(ids)
+                # Only add IDs that haven't been seen before
+                for ci_id in ids:
+                    if ci_id not in seen_ids:
+                        seen_ids.add(ci_id)
+                        merge_ids.append(ci_id)
 
         return merge_ids
 
     def _get_reverse_ids(self, ids):
+        """Get direct parents and children of root CI(s) only.
+        No siblings, no higher level traversal.
+        This replaces the old get_ancestor_ids which relied on ancestor_ids field.
+        """
         merge_ids = []
-        level2ids = {}
-        for level in range(1, sorted(self.level)[-1] + 1):
-            ids, _level2ids = CIRelationManager.get_ancestor_ids(ids, 1)
-
-            if _level2ids.get(2):
-                level2ids[level + 1] = _level2ids[2]
-
-            if level in self.level:
-                if level in level2ids and level2ids[level]:
-                    merge_ids.extend(set(ids) & set(level2ids[level]))
-                else:
-                    merge_ids.extend(ids)
-
+        root_ids = ids if isinstance(ids, list) else [ids]
+        
+        from api.models.cmdb import CIRelation
+        from api.extensions import db
+        
+        all_related_ids = set()
+        
+        for root_id in root_ids:
+            # Get direct parents of root CI (where root is second_ci_id = child)
+            parent_relations = db.session.query(CIRelation.first_ci_id).filter(
+                CIRelation.second_ci_id == root_id,
+                CIRelation.deleted.is_(False)
+            ).all()
+            parent_ids = [r.first_ci_id for r in parent_relations]
+            all_related_ids.update(parent_ids)
+            
+            # Get direct children of root CI (where root is first_ci_id = parent)
+            child_relations = db.session.query(CIRelation.second_ci_id).filter(
+                CIRelation.first_ci_id == root_id,
+                CIRelation.deleted.is_(False)
+            ).all()
+            child_ids = [r.second_ci_id for r in child_relations]
+            all_related_ids.update(child_ids)
+            
+            # Debug logging
+            current_app.logger.info(
+                f"_get_reverse_ids: root_id={root_id}, "
+                f"found {len(parent_ids)} parents: {parent_ids}, "
+                f"found {len(child_ids)} children: {child_ids}, "
+                f"total related_ids: {len(all_related_ids)}"
+            )
+        
+        # Only return direct parents and children
+        merge_ids.extend(list(all_related_ids))
+        
+        current_app.logger.info(f"_get_reverse_ids: returning {len(merge_ids)} IDs: {merge_ids[:10]}...")
+        
         return merge_ids
 
     def _has_read_perm_from_parent_nodes(self):
@@ -164,7 +199,27 @@ class Search(object):
         ids = [self.root_id] if not isinstance(self.root_id, list) else self.root_id
         cis = [CI.get_by_id(_id) or abort(404, ErrFormat.ci_not_found.format("id={}".format(_id))) for _id in ids]
 
-        merge_ids = self._get_ids(ids) if not self.reverse else self._get_reverse_ids(ids)
+        # Get both children and parents regardless of reverse flag
+        # reverse=0: get children using _get_ids, also get parents
+        # reverse=1: get parents and children using _get_reverse_ids
+        if not self.reverse:
+            # Get children
+            children_ids = self._get_ids(ids)
+            # Get parents (direct only)
+            parents_ids = self._get_reverse_ids(ids)
+            # Combine and deduplicate
+            merge_ids = list(set(children_ids + parents_ids)) if (children_ids or parents_ids) else []
+        else:
+            merge_ids = self._get_reverse_ids(ids)
+        
+        # Deduplicate merge_ids to ensure no duplicate CIs
+        # A CI can appear multiple times if it has multiple relations with root
+        merge_ids = list(set(merge_ids)) if merge_ids else []
+        
+        current_app.logger.info(
+            f"search: root_id={self.root_id}, reverse={self.reverse}, "
+            f"merge_ids count={len(merge_ids)}, sample={merge_ids[:10]}"
+        )
 
         if not self.orig_query or ("_type:" not in self.orig_query
                                    and "type_id:" not in self.orig_query
@@ -172,10 +227,10 @@ class Search(object):
             type_ids = []
             for level in self.level:
                 for ci in cis:
-                    if not self.reverse:
-                        type_ids.extend(CITypeRelationManager.get_child_type_ids(ci.type_id, level))
-                    else:
-                        type_ids.extend(CITypeRelationManager.get_parent_type_ids(ci.type_id, level))
+                    # Always get both parent types and child types
+                    # This ensures we can filter correctly for both parents and children
+                    type_ids.extend(CITypeRelationManager.get_parent_type_ids(ci.type_id, level))
+                    type_ids.extend(CITypeRelationManager.get_child_type_ids(ci.type_id, level))
             type_ids = set(type_ids)
             if self.orig_query:
                 self.orig_query = "_type:({0}),{1}".format(";".join(map(str, type_ids)), self.orig_query)
@@ -187,7 +242,7 @@ class Search(object):
             return [], {}, 0, self.page, 0, {}
 
         if current_app.config.get("USE_ES"):
-            return SearchFromES(self.orig_query,
+            response, counter, total, page, numfound, facet = SearchFromES(self.orig_query,
                                 fl=self.fl,
                                 facet_field=self.facet_field,
                                 page=self.page,
@@ -195,7 +250,7 @@ class Search(object):
                                 sort=self.sort,
                                 ci_ids=merge_ids).search()
         else:
-            return SearchFromDB(self.orig_query,
+            response, counter, total, page, numfound, facet = SearchFromDB(self.orig_query,
                                 fl=self.fl,
                                 facet_field=self.facet_field,
                                 page=self.page,
@@ -205,6 +260,33 @@ class Search(object):
                                 parent_node_perm_passed=parent_node_perm_passed,
                                 use_ci_filter=use_ci_filter,
                                 only_ids=only_ids).search()
+        
+        # Deduplicate response by CI ID to avoid duplicate CIs
+        # A CI can appear multiple times if it has multiple relations with root
+        seen_ci_ids = set()
+        deduplicated_response = []
+        for ci in response:
+            ci_id = ci.get('_id') or ci.get('ci_id') or ci.get('id')
+            if ci_id and ci_id not in seen_ci_ids:
+                seen_ci_ids.add(ci_id)
+                deduplicated_response.append(ci)
+            elif not ci_id:
+                # Keep CIs without id (shouldn't happen, but safe guard)
+                deduplicated_response.append(ci)
+        
+        # Update total and counter based on deduplicated response
+        total = len(deduplicated_response)
+        counter = {}
+        for ci in deduplicated_response:
+            ci_type = ci.get("ci_type")
+            if ci_type:
+                counter[ci_type] = counter.get(ci_type, 0) + 1
+        
+        current_app.logger.info(
+            f"search: deduplicated response from {len(response)} to {len(deduplicated_response)} CIs"
+        )
+        
+        return deduplicated_response, counter, total, page, numfound, facet
 
     def _get_ci_filter(self, filter_perms, ci_filters=None):
         ci_filters = ci_filters or []

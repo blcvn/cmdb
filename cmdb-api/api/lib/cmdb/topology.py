@@ -7,7 +7,7 @@ from flask import current_app
 from flask_login import current_user
 from werkzeug.exceptions import BadRequest
 
-from api.extensions import rd
+from api.extensions import rd, db
 from api.lib.cmdb.cache import AttributeCache
 from api.lib.cmdb.cache import CITypeCache
 from api.lib.cmdb.ci import CIRelationManager
@@ -21,6 +21,7 @@ from api.lib.perm.acl.acl import ACLManager
 from api.lib.perm.acl.acl import is_app_admin
 from api.models.cmdb import TopologyView
 from api.models.cmdb import TopologyViewGroup
+from api.models.cmdb import CI
 
 
 class TopologyViewManager(object):
@@ -320,15 +321,23 @@ class TopologyViewManager(object):
         except SearchError as e:
             current_app.logger.info(e)
             return dict(nodes=nodes, links=links)
+        # Deduplicate root nodes to avoid duplicates
+        seen_root_ids = set()
         for i in response:
-            root_ids.append(i['_id'])
-            nodes.append(dict(id=str(i['_id']), name=i[show_key.name], type_id=central_node_type))
+            root_id = i['_id']
+            if root_id not in seen_root_ids:
+                seen_root_ids.add(root_id)
+                root_ids.append(root_id)
+                nodes.append(dict(id=str(root_id), name=i[show_key.name], type_id=central_node_type))
+        
         if not root_ids:
             return dict(nodes=nodes, links=links)
 
         prefix = REDIS_PREFIX_CI_RELATION
         key = list(map(str, root_ids))
         id2node = {}
+        seen_links = set()  # Track links to avoid duplicates
+        
         for level in sorted([i for i in path.keys() if int(i) > 0]):
             type_ids = {int(i) for i in path[level]}
 
@@ -337,9 +346,16 @@ class TopologyViewManager(object):
             for idx, from_id in enumerate(key):
                 for to_id, type_id in res[idx]:
                     if type_id in type_ids:
-                        links.append({'from': from_id, 'to': to_id})
+                        # Check for duplicate links
+                        link_key = (from_id, to_id)
+                        if link_key not in seen_links:
+                            seen_links.add(link_key)
+                            links.append({'from': from_id, 'to': to_id})
+                        
+                        # id2node is a dict, so it will automatically deduplicate by key
                         id2node[to_id] = {'id': to_id, 'type_id': type_id}
-                        new_key.append(to_id)
+                        if to_id not in new_key:  # Avoid duplicate in new_key
+                            new_key.append(to_id)
                         if type_id not in type2meta:
                             type2meta[type_id] = CITypeCache.get(type_id).icon
 
@@ -350,20 +366,91 @@ class TopologyViewManager(object):
             type_ids = {int(i) for i in path[level]}
             res = CIRelationManager.get_parent_ids(ci_ids)
             _ci_ids = []
+            seen_parent_ci_ids = set()  # Track parent CIs to avoid duplicates
             for to_id in res:
                 for from_id, type_id in res[to_id]:
                     if type_id in type_ids:
                         from_id, to_id = str(from_id), str(to_id)
-                        links.append({'from': from_id, 'to': to_id})
+                        
+                        # Check for duplicate links
+                        link_key = (from_id, to_id)
+                        if link_key not in seen_links:
+                            seen_links.add(link_key)
+                            links.append({'from': from_id, 'to': to_id})
+                        
+                        # id2node is a dict, so it will automatically deduplicate by key
                         id2node[from_id] = {'id': str(from_id), 'type_id': type_id}
-                        _ci_ids.append(from_id)
+                        
+                        # Avoid duplicate in _ci_ids
+                        if from_id not in seen_parent_ci_ids:
+                            seen_parent_ci_ids.add(from_id)
+                            _ci_ids.append(from_id)
+                        
                         if type_id not in type2meta:
                             type2meta[type_id] = CITypeCache.get(type_id).icon
 
             ci_ids = _ci_ids
 
+        # Find additional CI instances that have relations TO/FROM discovered CIs
+        # This ensures we capture CIs like "Router instance -> Port Switch instance"
+        # even when Router is not in the path
+        all_discovered_ci_ids = set(root_ids)
+        all_discovered_ci_ids.update([int(ci_id) for ci_id in id2node.keys()])
+        
+        if all_discovered_ci_ids:
+            from api.models.cmdb import CIRelation, CI
+            
+            # Find all CIs that have relations to/from our discovered CIs
+            additional_ci_relations = db.session.query(
+                CIRelation.first_ci_id,
+                CIRelation.second_ci_id,
+                CI.type_id
+            ).join(
+                CI, CI.id == CIRelation.first_ci_id
+            ).filter(
+                db.or_(
+                    CIRelation.first_ci_id.in_(list(all_discovered_ci_ids)),
+                    CIRelation.second_ci_id.in_(list(all_discovered_ci_ids))
+                ),
+                CIRelation.deleted.is_(False),
+                CI.deleted.is_(False)
+            ).all()
+            
+            # Add additional nodes and links
+            for first_ci_id, second_ci_id, first_ci_type_id in additional_ci_relations:
+                first_id_str = str(first_ci_id)
+                second_id_str = str(second_ci_id)
+                
+                # Add link if not already added
+                link_key = (first_id_str, second_id_str)
+                if link_key not in seen_links:
+                    seen_links.add(link_key)
+                    links.append({'from': first_id_str, 'to': second_id_str})
+                
+                # Add first_ci to nodes if it's not a root and not already in id2node
+                if first_ci_id not in root_ids and first_id_str not in id2node:
+                    id2node[first_id_str] = {'id': first_id_str, 'type_id': first_ci_type_id}
+                    if first_ci_type_id not in type2meta:
+                        ci_type = CITypeCache.get(first_ci_type_id)
+                        if ci_type:
+                            type2meta[first_ci_type_id] = ci_type.icon
+                
+                # Get second_ci type and add to nodes if needed
+                if second_ci_id not in root_ids and second_id_str not in id2node:
+                    second_ci = CI.get_by_id(second_ci_id)
+                    if second_ci:
+                        second_ci_type_id = second_ci.type_id
+                        id2node[second_id_str] = {'id': second_id_str, 'type_id': second_ci_type_id}
+                        if second_ci_type_id not in type2meta:
+                            ci_type = CITypeCache.get(second_ci_type_id)
+                            if ci_type:
+                                type2meta[second_ci_type_id] = ci_type.icon
+        
         fl = set()
+        # Collect type_ids from all nodes (including additional ones)
         type_ids = {t for lv in path if lv != '0' for t in path[lv]}
+        type_ids.update([node['type_id'] for node in id2node.values()])
+        
         type2show = {}
         for type_id in type_ids:
             ci_type = CITypeCache.get(type_id)
@@ -381,10 +468,78 @@ class TopologyViewManager(object):
             except SearchError:
                 return dict(nodes=nodes, links=links)
             for i in response:
-                id2node[str(i['_id'])]['name'] = i[type2show[str(i['_type'])]]
+                ci_type_id = str(i['_type'])
+                ci_id = str(i['_id'])
+                
+                # Safely get the show attribute name for this CI type
+                if ci_type_id in type2show:
+                    # Use the configured show attribute
+                    id2node[ci_id]['name'] = i.get(type2show[ci_type_id], f"CI-{ci_id}")
+                else:
+                    # Fallback: If type not in type2show, try to get show attribute now
+                    ci_type = CITypeCache.get(int(ci_type_id))
+                    if ci_type:
+                        attr = AttributeCache.get(ci_type.show_id or ci_type.unique_id)
+                        if attr and attr.name in i:
+                            id2node[ci_id]['name'] = i[attr.name]
+                            type2show[ci_type_id] = attr.name  # Cache for next time
+                        else:
+                            # No show attribute available, use CI ID as fallback
+                            id2node[ci_id]['name'] = f"CI-{ci_id}"
+                            current_app.logger.warning(
+                                f"No show attribute found for CI type {ci_type_id}, using CI ID as name"
+                            )
+                    else:
+                        # CI type not found, use CI ID as fallback
+                        id2node[ci_id]['name'] = f"CI-{ci_id}"
+                        current_app.logger.warning(
+                            f"CI type {ci_type_id} not found in cache, using CI ID as name"
+                        )
             nodes.extend(id2node.values())
 
-        result = dict(nodes=nodes, links=links, type2meta=type2meta)
+        # Final deduplicate nodes by id to avoid duplicate CIs
+        # A CI can appear multiple times if it's reached through different paths
+        seen_node_ids = set()
+        deduplicated_nodes = []
+        duplicate_count = 0
+        for node in nodes:
+            node_id = node.get('id')
+            if node_id:
+                if node_id not in seen_node_ids:
+                    seen_node_ids.add(node_id)
+                    deduplicated_nodes.append(node)
+                else:
+                    duplicate_count += 1
+            else:
+                # Keep nodes without id (shouldn't happen, but safe guard)
+                deduplicated_nodes.append(node)
+        
+        # Final deduplicate links to avoid duplicate edges
+        # Note: seen_links was already used during link creation, but do it again for safety
+        final_seen_links = set()
+        deduplicated_links = []
+        duplicate_link_count = 0
+        for link in links:
+            link_key = (link.get('from'), link.get('to'))
+            if link_key:
+                if link_key not in final_seen_links:
+                    final_seen_links.add(link_key)
+                    deduplicated_links.append(link)
+                else:
+                    duplicate_link_count += 1
+            else:
+                # Keep links without from/to (shouldn't happen, but safe guard)
+                deduplicated_links.append(link)
+        
+        # Log deduplication stats
+        current_app.logger.info(
+            f"topology_view: deduplicated {duplicate_count} duplicate nodes "
+            f"(from {len(nodes)} to {len(deduplicated_nodes)}), "
+            f"deduplicated {duplicate_link_count} duplicate links "
+            f"(from {len(links)} to {len(deduplicated_links)})"
+        )
+
+        result = dict(nodes=deduplicated_nodes, links=deduplicated_links, type2meta=type2meta)
         
         # Cache the result if view_id is provided (not preview mode)
         if cache_key:
