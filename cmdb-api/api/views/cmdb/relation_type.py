@@ -28,8 +28,8 @@ class RelationTypeView(APIView):
     def post(self):
         name = request.values.get("name") or abort(400, ErrFormat.argument_value_required.format("name"))
         description = request.values.get("description")
-        first_ci_to_second_ci_impact = request.values.get("first_ci_to_second_ci_impact", type=int, default=0)
-        second_ci_to_first_ci_impact = request.values.get("second_ci_to_first_ci_impact", type=int, default=0)
+        first_ci_to_second_ci_impact = request.values.get("first_ci_to_second_ci_impact", 0, type=int)
+        second_ci_to_first_ci_impact = request.values.get("second_ci_to_first_ci_impact", 0, type=int)
         
         rel = RelationTypeManager.add(
             name=name,

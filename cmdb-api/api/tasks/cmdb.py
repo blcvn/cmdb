@@ -257,13 +257,31 @@ def ci_relation_cleanup_deleted(cr_id):
         # get_by_id filters out deleted records, but we need to process deleted ones
         from api.models.cmdb import CIRelation
         from api.extensions import db
-        cr = db.session.query(CIRelation).filter(CIRelation.id == cr_id).first()
+        cr = db.session.query(CIRelation).filter(
+            CIRelation.id == cr_id,
+            CIRelation.deleted.is_(True)
+        ).first()
         if not cr:
-            current_app.logger.warning(f"CI relation {cr_id} not found")
-            return
-        if not cr.deleted:
-            current_app.logger.warning(f"CI relation {cr_id} is not deleted, skipping cleanup")
-            return
+            exists = db.session.query(CIRelation.id).filter(CIRelation.id == cr_id).first()
+            if not exists:
+                current_app.logger.warning(f"CI relation {cr_id} not found")
+                return
+
+            # Race condition / replica lag handling
+            import time
+            time.sleep(0.5)
+            cr = db.session.query(CIRelation).filter(
+                CIRelation.id == cr_id,
+                CIRelation.deleted.is_(True)
+            ).first()
+            if not cr:
+                raw_deleted = db.session.query(CIRelation.deleted).filter(CIRelation.id == cr_id).first()
+                deleted_value = raw_deleted[0] if raw_deleted else None
+                current_app.logger.warning(
+                    f"CI relation {cr_id} is not deleted (deleted={deleted_value}, type={type(deleted_value)}) "
+                    "after refresh, skipping cleanup."
+                )
+                return
 
         # Add history
         from api.lib.cmdb.history import CIRelationHistoryManager

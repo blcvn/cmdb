@@ -1478,6 +1478,78 @@ class CIRelationManager(object):
 
         return numfound, len(first_ci_ids), result
 
+    @staticmethod
+    def get_children_with_impact(first_ci_id):
+        """
+        Get children CIs with impact > 0.
+        Returns list of dicts with ci_id, relation_type_id, and impact score.
+        """
+        from api.models.cmdb import RelationType
+        
+        # Query children (second_cis) with relation_type_id and filter by impact > 0
+        children_query = db.session.query(
+            CI.id.label('ci_id'),
+            CIRelation.relation_type_id,
+            RelationType.first_ci_to_second_ci_impact.label('impact')
+        ).filter(CI.deleted.is_(False)).join(
+            CIRelation, CIRelation.second_ci_id == CI.id
+        ).join(
+            RelationType, RelationType.id == CIRelation.relation_type_id
+        ).filter(
+            CIRelation.first_ci_id == first_ci_id
+        ).filter(CIRelation.deleted.is_(False)).filter(
+            RelationType.first_ci_to_second_ci_impact > 0
+        )
+        
+        results = children_query.all()
+        
+        # Format results
+        children = []
+        for row in results:
+            children.append({
+                'ci_id': row.ci_id,
+                'relation_type_id': row.relation_type_id,
+                'impact': row.impact
+            })
+        
+        return children
+
+    @staticmethod
+    def get_parents_with_impact(second_ci_id):
+        """
+        Get parent CIs with impact > 0.
+        Returns list of dicts with ci_id, relation_type_id, and impact score.
+        """
+        from api.models.cmdb import RelationType
+        
+        # Query parents (first_cis) with relation_type_id and filter by impact > 0
+        parents_query = db.session.query(
+            CI.id.label('ci_id'),
+            CIRelation.relation_type_id,
+            RelationType.second_ci_to_first_ci_impact.label('impact')
+        ).filter(CI.deleted.is_(False)).join(
+            CIRelation, CIRelation.first_ci_id == CI.id
+        ).join(
+            RelationType, RelationType.id == CIRelation.relation_type_id
+        ).filter(
+            CIRelation.second_ci_id == second_ci_id
+        ).filter(CIRelation.deleted.is_(False)).filter(
+            RelationType.second_ci_to_first_ci_impact > 0
+        )
+        
+        results = parents_query.all()
+        
+        # Format results
+        parents = []
+        for row in results:
+            parents.append({
+                'ci_id': row.ci_id,
+                'relation_type_id': row.relation_type_id,
+                'impact': row.impact
+            })
+        
+        return parents
+
     @classmethod
     def get_ancestor_ids(cls, ci_ids, level=1):
         level2ids = dict()

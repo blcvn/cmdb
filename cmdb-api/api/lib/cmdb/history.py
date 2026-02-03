@@ -251,7 +251,12 @@ class AttributeHistoryManger(object):
 class CIRelationHistoryManager(object):
     @staticmethod
     def add(rel_obj, operate_type=OperateType.ADD, uid=None):
-        record = OperationRecord.create(uid=uid or current_user.uid)
+        if uid is None:
+            try:
+                uid = current_user.uid if hasattr(current_user, 'uid') else None
+            except Exception:
+                uid = None
+        record = OperationRecord.create(uid=uid)
 
         CIRelationHistory.create(relation_id=rel_obj.id,
                                  record_id=record.id,

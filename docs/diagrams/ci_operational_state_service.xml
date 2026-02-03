@@ -1,0 +1,99 @@
+<mxfile host="app.diagrams.net" modified="2026-01-26T00:00:00.000Z" agent="Cursor GPT-5.2" version="24.7.7" type="device">
+  <diagram id="OSS-State-Model" name="OSS - CI Operational State Service">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Upstream -->
+        <mxCell id="upstream" value="Upstream Systems (out of scope)&#10;- Monitoring / Correlation / Automation&#10;- Produce state updates + evidence refs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="360" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- OSS boundary -->
+        <mxCell id="oss_boundary" value="CI Operational State Service (OSS)" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;strokeColor=#6C8EBF;fillColor=none;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="60" width="1040" height="620" as="geometry"/>
+        </mxCell>
+
+        <!-- State Update API -->
+        <mxCell id="state_api_update" value="State API&#10;(State Update Endpoint)&#10;POST /api/v1/state/updates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="540" y="120" width="300" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Query/Admin API -->
+        <mxCell id="state_api_query" value="State API&#10;(Query / Admin / Actions)&#10;- profiles / assignments&#10;- query current/history&#10;- override / suppress / ack" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="540" y="240" width="300" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Primary DB -->
+        <mxCell id="db" value="Primary DB (PostgreSQL)&#10;- current state&#10;- state history&#10;- received updates (audit)" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="900" y="150" width="240" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Cache -->
+        <mxCell id="redis" value="Cache (Redis)&#10;hot current states" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="900" y="330" width="240" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Notifier -->
+        <mxCell id="notify" value="Notifier&#10;- Webhook dispatcher&#10;- SSE stream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="150" width="260" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- Downstream -->
+        <mxCell id="downstream" value="Downstream Consumers&#10;- NOC dashboard&#10;- ITSM / Incident&#10;- Automation / Runbooks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="300" width="260" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Scheduler -->
+        <mxCell id="scheduler" value="Scheduler (in OSS)&#10;- maintenance windows&#10;- generate maintenance updates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="540" y="410" width="300" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="e1" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="upstream" target="state_api_update">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="state_api_update" target="db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="db" target="redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="state_api_query" target="redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="state_api_query" target="db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e6" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="db" target="notify">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="notify" target="downstream">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e8" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="scheduler" target="state_api_update">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="label1" value="state update&#10;(to_state_key, domain, observed_at, evidence_ref…)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="85" width="300" height="40" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="label2" value="notify on state change" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="255" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+
+

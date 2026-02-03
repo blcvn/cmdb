@@ -1,0 +1,86 @@
+<mxfile host="app.diagrams.net" modified="2026-01-26T00:00:00.000Z" agent="Cursor GPT-5.2" version="24.7.7" type="device">
+  <diagram id="CMDB-A2A-Ecosystem" name="CMDB A2A Ecosystem Overview">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Nodes -->
+        <mxCell id="users" value="Users / Ops&#10;Portal / Chat / UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="60" width="260" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="orchestrator" value="Agent Orchestrator&#10;(A2A Planner / Exec)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="180" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="oss" value="CI State Service&#10;(OSS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="180" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="eps" value="Event Processing System&#10;(EPS: ingest / correlate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="320" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="kb" value="Knowledge Base&#10;(RAG / Search)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="360" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="external" value="External Systems&#10;Alert / Log / CR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="340" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cmdb" value="CMDB (Core Data)&#10;System-of-Record for CI / Types / Relations" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="560" width="520" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cmdb_note" value="Queried / enriched by EPS / Orchestrator / KB" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="360" y="710" width="520" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e_users_orch" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="users" target="orchestrator">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_orch_kb" value="retrieve context" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;" edge="1" parent="1" source="orchestrator" target="kb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_orch_oss" value="state query / notify" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;" edge="1" parent="1" source="orchestrator" target="oss">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_external_eps" value="raw events" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;" edge="1" parent="1" source="external" target="eps">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_eps_oss" value="state updates" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;" edge="1" parent="1" source="eps" target="oss">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_eps_orch" value="triggers / incidents" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;dashed=1;" edge="1" parent="1" source="eps" target="orchestrator">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- CMDB enrichment (dashed) -->
+        <mxCell id="e_orch_cmdb" value="query / enrich" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#000000;fontSize=12;dashed=1;" edge="1" parent="1" source="orchestrator" target="cmdb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_eps_cmdb" value="CI mapping / topology" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#000000;fontSize=12;dashed=1;" edge="1" parent="1" source="eps" target="cmdb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_kb_cmdb" value="metadata enrich (optional)" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#000000;fontSize=12;dashed=1;" edge="1" parent="1" source="kb" target="cmdb">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+
+
+
+
