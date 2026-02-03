@@ -21,7 +21,14 @@ db = SQLAlchemy(session_options={"autoflush": False})
 migrate = Migrate()
 cache = Cache()
 celery = Celery()
-cors = CORS(supports_credentials=True)
+# Configure CORS to allow requests from frontend
+cors = CORS(
+    supports_credentials=True,
+    resources={r"/*": {"origins": "*"}},
+    allow_headers=["Content-Type", "Authorization", "Access-Token", "X-Requested-With"],
+    expose_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+)
 rd = RedisHandler()
 es = ESHandler()
 inner_secrets = KeyManage()

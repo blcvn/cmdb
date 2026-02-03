@@ -1,0 +1,144 @@
+<mxfile host="app.diagrams.net" modified="2026-01-27T00:00:00.000Z" agent="Cursor GPT-5.2" version="24.7.7" type="device">
+  <diagram id="KB-Architecture" name="Knowledge Base Architecture">
+    <mxGraphModel dx="2000" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Sources Layer -->
+        <mxCell id="sources" value="Sources&#10;&#10;• Manual Authoring&#10;• Imports (Wiki/Confluence)&#10;• Incident Closures&#10;• EPS Artifacts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="40" width="280" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- KB API Layer -->
+        <mxCell id="kb_api" value="KB API&#10;&#10;• Authentication / Authorization&#10;• CRUD Operations&#10;• Workflow (draft → review → publish)&#10;• Linking to CMDB/ITSM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="220" width="280" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- Primary Store -->
+        <mxCell id="primary_store" value="Primary Store&#10;(MySQL/PostgreSQL)&#10;&#10;• items, revisions&#10;• links, feedback&#10;• ACL, audit logs" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="240" width="240" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Object Store -->
+        <mxCell id="object_store" value="Object Store&#10;(S3/MinIO)&#10;[Optional]&#10;&#10;• Attachments&#10;  (PDF, images, exports)" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="420" width="240" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Indexing Pipeline -->
+        <mxCell id="indexing_pipeline" value="Indexing Pipeline&#10;(Async Worker)&#10;&#10;• Extract + Normalize&#10;• Chunking&#10;• Full-text Index&#10;• (Optional) Embeddings + Vector Index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="240" width="280" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- Search Engine -->
+        <mxCell id="search_engine" value="Search Engine&#10;&#10;• OpenSearch/Elasticsearch&#10;  (BM25 + Facets)&#10;• (Optional) Vector:&#10;  - OpenSearch kNN&#10;  - pgvector&#10;  - Milvus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="440" width="280" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- UI Layer -->
+        <mxCell id="ui_layer" value="UI/Portal + CMDB UI Integrations&#10;&#10;• KB Portal&#10;• CMDB CI Detail → Knowledge Tab&#10;• Incident Triage → Suggestions&#10;• Change Impact → Templates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="640" width="280" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- CMDB Integration -->
+        <mxCell id="cmdb_integration" value="CMDB Integration&#10;(Read-only)&#10;&#10;• Validate CI refs&#10;• Enrich metadata&#10;  (service/team/env)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="480" y="640" width="240" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- ITSM/EPS Integration -->
+        <mxCell id="itsm_integration" value="ITSM/EPS Integration&#10;&#10;• Incident closure → RCA draft&#10;• EPS triage → KB suggestions&#10;• Change requests → Templates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=13;fontStyle=1;align=left;verticalAlign=top;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="640" width="280" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges from Sources to KB API -->
+        <mxCell id="e_sources_api" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="sources" target="kb_api">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges from KB API to Primary Store -->
+        <mxCell id="e_api_primary" value="CRUD" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#82B366;fontSize=12;" edge="1" parent="1" source="kb_api" target="primary_store">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="380" as="sourcePoint"/>
+            <mxPoint x="600" y="310" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from KB API to Object Store -->
+        <mxCell id="e_api_object" value="attachments" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#9673A6;fontSize=12;dashed=1;" edge="1" parent="1" source="kb_api" target="object_store">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="380" as="sourcePoint"/>
+            <mxPoint x="600" y="490" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from KB API to Indexing Pipeline -->
+        <mxCell id="e_api_indexing" value="index jobs" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#B85450;fontSize=12;" edge="1" parent="1" source="kb_api" target="indexing_pipeline">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="300" as="sourcePoint"/>
+            <mxPoint x="800" y="320" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from Primary Store to Indexing Pipeline -->
+        <mxCell id="e_primary_indexing" value="read revisions" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;dashed=1;" edge="1" parent="1" source="primary_store" target="indexing_pipeline">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="720" y="310" as="sourcePoint"/>
+            <mxPoint x="800" y="320" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from Indexing Pipeline to Search Engine -->
+        <mxCell id="e_indexing_search" value="index updates" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#D79B00;fontSize=12;" edge="1" parent="1" source="indexing_pipeline" target="search_engine">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges from KB API to Search Engine -->
+        <mxCell id="e_api_search" value="search queries" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#D79B00;fontSize=12;" edge="1" parent="1" source="kb_api" target="search_engine">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="300" as="sourcePoint"/>
+            <mxPoint x="940" y="520" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from KB API to UI Layer -->
+        <mxCell id="e_api_ui" value="API responses" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#666666;fontSize=12;" edge="1" parent="1" source="kb_api" target="ui_layer">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="380" as="sourcePoint"/>
+            <mxPoint x="220" y="640" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from KB API to CMDB Integration -->
+        <mxCell id="e_api_cmdb" value="validate/enrich" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#82B366;fontSize=12;dashed=1;" edge="1" parent="1" source="kb_api" target="cmdb_integration">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="300" as="sourcePoint"/>
+            <mxPoint x="600" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edges from KB API to ITSM Integration -->
+        <mxCell id="e_api_itsm" value="suggestions" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#B85450;fontSize=12;dashed=1;" edge="1" parent="1" source="kb_api" target="itsm_integration">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="300" as="sourcePoint"/>
+            <mxPoint x="940" y="700" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Bidirectional edge from ITSM to KB API -->
+        <mxCell id="e_itsm_api" value="incident/change events" style="endArrow=block;html=1;strokeWidth=2;strokeColor=#B85450;fontSize=12;dashed=1;" edge="1" parent="1" source="itsm_integration" target="kb_api">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="700" as="sourcePoint"/>
+            <mxPoint x="360" y="300" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Title -->
+        <mxCell id="title" value="Knowledge Base (KB) Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="0" width="1000" height="40" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

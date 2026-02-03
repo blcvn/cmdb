@@ -23,6 +23,9 @@ class RelationType(Model):
     __tablename__ = "c_relation_types"
 
     name = db.Column(db.String(16), index=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    first_ci_to_second_ci_impact = db.Column(db.Integer, default=0, nullable=False)
+    second_ci_to_first_ci_impact = db.Column(db.Integer, default=0, nullable=False)
 
 
 class CITypeGroup(Model):

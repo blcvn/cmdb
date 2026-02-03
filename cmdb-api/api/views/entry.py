@@ -33,3 +33,4 @@ register_resources(os.path.join(HERE, "acl"), rest)
 blueprint_cs_v1 = Blueprint('common_setting_api_v1', __name__, url_prefix='/api/common-setting/v1')
 rest = Api(blueprint_cs_v1)
 register_resources(os.path.join(HERE, "common_setting"), rest)
+

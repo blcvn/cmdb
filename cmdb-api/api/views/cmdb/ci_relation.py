@@ -180,6 +180,38 @@ class GetFirstCIsView(APIView):
                             first_cis=first_cis)
 
 
+class GetCIRelationsWithImpactView(APIView):
+    url_prefix = "/ci_relations/<int:ci_id>/impact"
+
+    def get(self, ci_id):
+        """
+        Get parents and children CIs with impact > 0.
+        Returns:
+        {
+            "parents": [
+                {"ci_id": 123, "relation_type_id": 5, "impact": 10},
+                ...
+            ],
+            "children": [
+                {"ci_id": 456, "relation_type_id": 6, "impact": 8},
+                ...
+            ]
+        }
+        """
+        manager = CIRelationManager()
+        
+        # Get parents with impact > 0
+        parents = manager.get_parents_with_impact(ci_id)
+        
+        # Get children with impact > 0
+        children = manager.get_children_with_impact(ci_id)
+        
+        return self.jsonify(
+            parents=parents,
+            children=children
+        )
+
+
 class CIRelationView(APIView):
     url_prefix = "/ci_relations/<int:first_ci_id>/<int:second_ci_id>"
 

@@ -27,17 +27,35 @@ class RelationTypeView(APIView):
     @args_validate(RelationTypeManager.cls)
     def post(self):
         name = request.values.get("name") or abort(400, ErrFormat.argument_value_required.format("name"))
-        rel = RelationTypeManager.add(name)
+        description = request.values.get("description")
+        first_ci_to_second_ci_impact = request.values.get("first_ci_to_second_ci_impact", 0, type=int)
+        second_ci_to_first_ci_impact = request.values.get("second_ci_to_first_ci_impact", 0, type=int)
+        
+        rel = RelationTypeManager.add(
+            name=name,
+            description=description,
+            first_ci_to_second_ci_impact=first_ci_to_second_ci_impact,
+            second_ci_to_first_ci_impact=second_ci_to_first_ci_impact
+        )
 
         return self.jsonify(rel.to_dict())
 
     @perms_role_required(app_cli.app_name, app_cli.resource_type_name, app_cli.op.Relationship_Types,
                          app_cli.op.read, app_cli.admin_name)
-    @args_required("name")
     @args_validate(RelationTypeManager.cls)
     def put(self, rel_id):
-        name = request.values.get("name") or abort(400, ErrFormat.argument_value_required.format("name"))
-        rel = RelationTypeManager.update(rel_id, name)
+        name = request.values.get("name")
+        description = request.values.get("description")
+        first_ci_to_second_ci_impact = request.values.get("first_ci_to_second_ci_impact", type=int)
+        second_ci_to_first_ci_impact = request.values.get("second_ci_to_first_ci_impact", type=int)
+        
+        rel = RelationTypeManager.update(
+            rel_id=rel_id,
+            name=name,
+            description=description,
+            first_ci_to_second_ci_impact=first_ci_to_second_ci_impact,
+            second_ci_to_first_ci_impact=second_ci_to_first_ci_impact
+        )
 
         return self.jsonify(rel.to_dict())
 

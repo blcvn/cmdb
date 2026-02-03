@@ -144,11 +144,13 @@ class TopologyGraphView(APIView):
         
         # Build the node structure
         node = {
+            "ci_id": ci_data.get('_id'),  # Add CI ID
             "name": name,
             "alias": alias,
             "layer": layer,
             "site": ci_data.get('site'),
             "metadata": metadata,
+            "attributes": ci_data,  # Add full CI attributes
             "ci_type": {
                 "ci_name": ci_type.name if ci_type else "Unknown",
                 "ci_alias": ci_type.alias if ci_type else "unknown",
@@ -251,11 +253,13 @@ class TopologyGraphView(APIView):
                 name = ci_data.get('app_code', '') or ci_data.get('name', '')
             
             return {
+                "ci_id": ci_data.get('_id'),  # Add CI ID
                 "name": name,
                 "alias": alias,
                 "layer": layer,
                 "site": ci_data.get('data_center'),
                 "metadata": metadata,
+                "attributes": ci_data,  # Add full CI attributes
                 "ci_type": {
                     "ci_name": ci_type.name if ci_type else "Unknown",
                     "ci_alias": ci_type.alias if ci_type else "unknown",
@@ -358,6 +362,8 @@ class TopologyGraphView(APIView):
         Get topology graph data for infrastructure visualization
         
         Query params:
+        - root_id: Root CI ID to fetch topology from (takes precedence over app_code)
+        - level: Maximum depth/level to traverse (alias for max_depth)
         - max_depth: Maximum depth to traverse (default: 10)
         - max_nodes: Maximum nodes to fetch (default: 500)
         - app_code: Application code to fetch (default: VNPCHIHO)
@@ -366,13 +372,18 @@ class TopologyGraphView(APIView):
         """
         try:
             # Get parameters from query string
-            max_depth = request.args.get('max_depth', type=int)
+            root_id = request.args.get('root_id', type=int)
+            level = request.args.get('level', type=int)
+            max_depth = request.args.get('max_depth', type=int) or level  # level is alias for max_depth
             max_nodes = request.args.get('max_nodes', type=int)
             app_code = request.args.get('app_code', 'VNPCHIHO')
             
+            # Determine the identifier for caching and logging
+            identifier = str(root_id) if root_id else app_code
+            
             # Generate cache key
             cache_key = (
-                f"topology_graph:v1:{app_code}:"
+                f"topology_graph:v2:{identifier}:"
                 f"{max_depth or DEFAULT_MAX_DEPTH}:"
                 f"{max_nodes or DEFAULT_MAX_NODES}"
             )
@@ -381,49 +392,61 @@ class TopologyGraphView(APIView):
             try:
                 cached_result = rd.get_str(cache_key)
                 if cached_result:
-                    current_app.logger.info(f"Topology cache HIT for {app_code}")
+                    current_app.logger.info(f"Topology cache HIT for {identifier}")
                     return self.jsonify(json.loads(cached_result))
             except Exception as cache_error:
                 current_app.logger.warning(f"Cache read error: {cache_error}")
             
-            current_app.logger.info(f"Topology cache MISS for {app_code}, fetching from database")
+            current_app.logger.info(f"Topology cache MISS for {identifier}, fetching from database")
             
-            # Try to fetch application and recursive relationships
+            # Try to fetch CI and recursive relationships
             all_nodes = []
             all_edges = []
-            app_found = False
-            app_ci_data = None
+            ci_found = False
+            ci_data = None
+            ci_id = None
             
             try:
-                # Search for application
-                s = ci_search(query=f"app_code:{app_code}", count=1, ret_key=RetKey.NAME)
-                response, _, _, _, numfound, _ = s.search()
+                # If root_id is provided, use it directly
+                if root_id:
+                    current_app.logger.info(f"Fetching topology for root_id: {root_id}")
+                    ci_data = CIManager.get_ci_by_id(root_id, need_children=False)
+                    if ci_data:
+                        ci_found = True
+                        ci_id = root_id
+                else:
+                    # Search for application by app_code
+                    s = ci_search(query=f"app_code:{app_code}", count=1, ret_key=RetKey.NAME)
+                    response, _, _, _, numfound, _ = s.search()
+                    
+                    if response and len(response) > 0:
+                        ci_found = True
+                        ci_data = response[0]
+                        ci_id = ci_data['_id']
+                    else:
+                        current_app.logger.info(f"Application '{app_code}' not found in database")
                 
-                if response and len(response) > 0:
-                    app_found = True
-                    app_ci_data = response[0]  # Store the app CI data
-                    app_ci_id = app_ci_data['_id']
+                # Fetch topology if CI was found
+                if ci_found and ci_id:
                     all_nodes, all_edges = self._fetch_ci_topology_with_search(
-                        app_ci_id, 
+                        ci_id, 
                         max_depth=max_depth, 
                         max_nodes=max_nodes
                     )
                     current_app.logger.info(
                         f"Fetched {len(all_nodes)} nodes and {len(all_edges)} edges "
-                        f"for {app_code} (depth: {max_depth or DEFAULT_MAX_DEPTH})"
+                        f"for {identifier} (depth: {max_depth or DEFAULT_MAX_DEPTH})"
                     )
-                else:
-                    current_app.logger.info(f"Application '{app_code}' not found in database")
             except Exception as search_error:
                 current_app.logger.error(f"Error fetching topology: {str(search_error)}")
             
-            # If app was found but nodes are empty, at least show the app node
-            if not all_nodes and app_found and app_ci_data:
+            # If CI was found but nodes are empty, at least show the CI node
+            if not all_nodes and ci_found and ci_data:
                 current_app.logger.warning(
-                    f"Application '{app_code}' found but no topology data. Showing app node only."
+                    f"CI '{identifier}' found but no topology data. Showing CI node only."
                 )
-                app_node = self._transform_ci_to_node(app_ci_data)
-                all_nodes = [app_node]
+                ci_node = self._transform_ci_to_node(ci_data)
+                all_nodes = [ci_node]
                 all_edges = []
             
             # Only return "not found" if app truly doesn't exist
@@ -448,8 +471,8 @@ class TopologyGraphView(APIView):
                         "total_edges": 0,
                         "max_depth_used": max_depth or DEFAULT_MAX_DEPTH,
                         "max_nodes_limit": max_nodes or DEFAULT_MAX_NODES,
-                        "app_code": app_code,
-                        "message": f"Application '{app_code}' not found in database"
+                        "identifier": identifier,
+                        "message": f"CI '{identifier}' not found in database"
                     }
                 })
             
@@ -474,7 +497,9 @@ class TopologyGraphView(APIView):
                     "total_edges": len(all_edges),
                     "max_depth_used": max_depth or DEFAULT_MAX_DEPTH,
                     "max_nodes_limit": max_nodes or DEFAULT_MAX_NODES,
-                    "app_code": app_code,
+                    "identifier": identifier,
+                    "root_id": root_id,
+                    "app_code": app_code if not root_id else None,
                     "message": "Success"
                 }
             }
@@ -483,7 +508,7 @@ class TopologyGraphView(APIView):
             try:
                 rd.set_str(cache_key, json.dumps(result), expired=DEFAULT_CACHE_TTL)
                 current_app.logger.info(
-                    f"Cached topology for {app_code} (TTL: {DEFAULT_CACHE_TTL}s)"
+                    f"Cached topology for {identifier} (TTL: {DEFAULT_CACHE_TTL}s)"
                 )
             except Exception as cache_error:
                 current_app.logger.warning(f"Cache write error: {cache_error}")

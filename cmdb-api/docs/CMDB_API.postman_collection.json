@@ -1,0 +1,1645 @@
+{
+	"info": {
+		"_postman_id": "cmdb-api-collection",
+		"name": "CMDB API",
+		"description": "Complete API collection for CMDB (Configuration Management Database)\n\n## Setup Instructions:\n1. Set `base_url` variable (default: http://localhost:5000)\n2. Run 'Login' request to get token\n3. Token will be automatically saved to `token` variable\n4. All other requests will use the token automatically",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"version": "1.0.0"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        // Set token to environment variable (preferred)",
+									"        if (pm.environment.has('token')) {",
+									"            pm.environment.set('token', jsonData.token);",
+									"            console.log('Token saved to environment variable: token');",
+									"        }",
+									"        // Also set to collection variable as fallback",
+									"        pm.collectionVariables.set('token', jsonData.token);",
+									"        // Backward compatibility",
+									"        if (pm.environment.has('auth_token')) {",
+									"            pm.environment.set('auth_token', jsonData.token);",
+									"        }",
+									"        pm.collectionVariables.set('auth_token', jsonData.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "admin",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"logout"
+							]
+						}
+					}
+				},
+				{
+					"name": "Auth with Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "key",
+									"value": "{{api_key}}",
+									"type": "text"
+								},
+								{
+									"key": "secret",
+									"value": "{{api_secret}}",
+									"type": "text"
+								},
+								{
+									"key": "path",
+									"value": "/api/v0.1/ci",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth_with_key",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth_with_key"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "CI Management",
+			"item": [
+				{
+					"name": "Get CI by ID",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Get token from environment or collection variable",
+									"var token = pm.environment.get('token') || pm.collectionVariables.get('token');",
+									"if (!token) {",
+									"    console.warn('Token not found. Please run Login request first.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci/{{ci_id}}?fields=&ret_key=name",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci",
+								"{{ci_id}}"
+							],
+							"query": [
+								{
+									"key": "fields",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "ret_key",
+									"value": "name"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create CI",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "ci_type",
+									"value": "server",
+									"type": "text"
+								},
+								{
+									"key": "name",
+									"value": "Server-01",
+									"type": "text"
+								},
+								{
+									"key": "exist_policy",
+									"value": "REJECT",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update CI",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "name",
+									"value": "Server-01-Updated",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci/{{ci_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci",
+								"{{ci_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete CI",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci/{{ci_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci",
+								"{{ci_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get CIs by Type",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci/type/{{type_id}}?page=1&count=20&ret_key=name",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci",
+								"type",
+								"{{type_id}}"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "count",
+									"value": "20"
+								},
+								{
+									"key": "ret_key",
+									"value": "name"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Search CIs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci/s?q=name:Server*&page=1&count=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci",
+								"s"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "name:Server*"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "count",
+									"value": "20"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "CI Type Management",
+			"item": [
+				{
+					"name": "List CI Types",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get CI Type by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types/{{type_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types",
+								"{{type_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create CI Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "name",
+									"value": "server",
+									"type": "text"
+								},
+								{
+									"key": "alias",
+									"value": "Server",
+									"type": "text"
+								},
+								{
+									"key": "enabled",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types"
+							]
+						}
+					}
+				},
+				{
+					"name": "Update CI Type",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "alias",
+									"value": "Server Updated",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types/{{type_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types",
+								"{{type_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get CI Type Attributes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types/{{type_id}}/attributes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types",
+								"{{type_id}}",
+								"attributes"
+							]
+						}
+					}
+				},
+				{
+					"name": "Add Attribute to CI Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "attr_id",
+									"value": "{{attr_id}}",
+									"type": "text"
+								},
+								{
+									"key": "is_required",
+									"value": "false",
+									"type": "text"
+								},
+								{
+									"key": "is_unique",
+									"value": "false",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_types/{{type_id}}/attributes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_types",
+								"{{type_id}}",
+								"attributes"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "CI Relations",
+			"item": [
+				{
+					"name": "Create CI Relation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "first_ci_id",
+									"value": "{{first_ci_id}}",
+									"type": "text"
+								},
+								{
+									"key": "second_ci_id",
+									"value": "{{second_ci_id}}",
+									"type": "text"
+								},
+								{
+									"key": "relation_type_id",
+									"value": "{{relation_type_id}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_relations",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_relations"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get CI Relation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_relations/{{first_ci_id}}/{{second_ci_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_relations",
+								"{{first_ci_id}}",
+								"{{second_ci_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete CI Relation",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_relations/{{first_ci_id}}/{{second_ci_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_relations",
+								"{{first_ci_id}}",
+								"{{second_ci_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Search CI Relations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ci_relations/s?root_id={{ci_id}}&level=1&page=1&count=20",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ci_relations",
+								"s"
+							],
+							"query": [
+								{
+									"key": "root_id",
+									"value": "{{ci_id}}"
+								},
+								{
+									"key": "level",
+									"value": "1"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "count",
+									"value": "20"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Topology",
+			"item": [
+				{
+					"name": "Get Topology Graph",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/topology/graph?root_id={{ci_id}}&level=2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"topology",
+								"graph"
+							],
+							"query": [
+								{
+									"key": "root_id",
+									"value": "{{ci_id}}"
+								},
+								{
+									"key": "level",
+									"value": "2"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "List Topology Views",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/topology_views",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"topology_views"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Topology View",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "name",
+									"value": "My Topology View",
+									"type": "text"
+								},
+								{
+									"key": "group_id",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/topology_views",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"topology_views"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "IPAM",
+			"item": [
+				{
+					"name": "Get Subnet Tree",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ipam/subnet",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ipam",
+								"subnet"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Subnet",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "cidr",
+									"value": "192.168.1.0/24",
+									"type": "text"
+								},
+								{
+									"key": "parent_id",
+									"value": "",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ipam/subnet",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ipam",
+								"subnet"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Subnet by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ipam/subnet/{{subnet_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ipam",
+								"subnet",
+								"{{subnet_id}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get IPAM Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/ipam/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"ipam",
+								"stats"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Auto Discovery",
+			"item": [
+				{
+					"name": "List Discovery Rules",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/adr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"adr"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Discovery Rule",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "name",
+									"value": "SNMP Discovery Rule",
+									"type": "text"
+								},
+								{
+									"key": "ci_type_name",
+									"value": "switch",
+									"type": "text"
+								},
+								{
+									"key": "discovery_type",
+									"value": "snmp",
+									"type": "text"
+								},
+								{
+									"key": "enabled",
+									"value": "true",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/adr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"adr"
+							]
+						}
+					}
+				},
+				{
+					"name": "List Discovered CIs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/adc?status=QUEUED",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"adc"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "QUEUED"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Accept Discovered CI",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/adc/{{adc_id}}/accept",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"adc",
+								"{{adc_id}}",
+								"accept"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "History",
+			"item": [
+				{
+					"name": "Get CI History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0.1/history/ci/{{ci_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0.1",
+								"history",
+								"ci",
+								"{{ci_id}}"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "ACL",
+			"item": [
+				{
+					"name": "List Applications",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/acl/apps",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"acl",
+								"apps"
+							]
+						}
+					}
+				},
+				{
+					"name": "List Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/acl/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"acl",
+								"roles"
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "name",
+									"value": "Admin Role",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/acl/roles",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"acl",
+								"roles"
+							]
+						}
+					}
+				},
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/acl/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"acl",
+								"users"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Common Setting",
+			"item": [
+				{
+					"name": "List Employees",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/common-setting/v1/employee",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"common-setting",
+								"v1",
+								"employee"
+							]
+						}
+					}
+				},
+				{
+					"name": "List Departments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Access-Token",
+								"value": "{{token}}",
+								"type": "text",
+								"description": "JWT token from login (primary auth method)"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text",
+								"description": "Alternative auth method (ACL token)"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/common-setting/v1/department",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"common-setting",
+								"v1",
+								"department"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string",
+			"description": "Base URL for CMDB API. Change this to your CMDB server URL (e.g., https://cmdb.example.com)"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string",
+			"description": "JWT token - automatically set after login"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string",
+			"description": "Deprecated - use 'token' instead. Kept for backward compatibility"
+		},
+		{
+			"key": "ci_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example CI ID for testing"
+		},
+		{
+			"key": "type_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example CI Type ID for testing"
+		},
+		{
+			"key": "first_ci_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example first CI ID for relations"
+		},
+		{
+			"key": "second_ci_id",
+			"value": "2",
+			"type": "string",
+			"description": "Example second CI ID for relations"
+		},
+		{
+			"key": "relation_type_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example relation type ID"
+		},
+		{
+			"key": "attr_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example attribute ID"
+		},
+		{
+			"key": "subnet_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example subnet ID"
+		},
+		{
+			"key": "adc_id",
+			"value": "1",
+			"type": "string",
+			"description": "Example auto-discovery CI ID"
+		},
+		{
+			"key": "api_key",
+			"value": "",
+			"type": "string",
+			"description": "API key for auth_with_key endpoint"
+		},
+		{
+			"key": "api_secret",
+			"value": "",
+			"type": "string",
+			"description": "API secret for auth_with_key endpoint"
+		}
+	]
+}

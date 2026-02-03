@@ -1255,6 +1255,188 @@ class CIRelationManager(object):
         return list(result_set)
 
     @staticmethod
+    def recursive_parents(ci_id, max_depth=None, _current_depth=0, include_siblings=True):
+        """Get all parent CIs reachable from ci_id via relationships (upward traversal).
+        When traversing upward, also includes children of parents (siblings) if include_siblings=True.
+        Uses BFS to avoid revisiting nodes and find shortest paths.
+        Only includes valid relationships (not deleted, with valid type relation).
+        
+        Example: Switch => Port => NIC => Hypervisor Host => Physical Server
+        When include_siblings=True, also includes other Switches connected to the same Port.
+        
+        Args:
+            ci_id: Root CI ID (starting point, child)
+            max_depth: Maximum depth to traverse (None = unlimited)
+            _current_depth: Internal use for tracking recursion depth
+            include_siblings: If True, also include children of parents (siblings)
+            
+        Returns:
+            List of parent CI IDs (and siblings if include_siblings=True) reachable from ci_id
+        """
+        from collections import deque
+        from api.models.cmdb import CITypeRelation, CI
+        from api.extensions import db
+        
+        result_set = set()  # All found parents and siblings
+        depth_map = {}  # Map CI ID -> depth from root
+        visited = set()  # Track visited nodes to avoid loops
+        
+        # Cache valid CITypeRelations (not deleted) as a set of (parent_type_id, child_type_id, relation_type_id)
+        valid_type_relations = set(
+            (r.parent_id, r.child_id, r.relation_type_id) for r in 
+            db.session.query(
+                CITypeRelation.parent_id,
+                CITypeRelation.child_id,
+                CITypeRelation.relation_type_id
+            ).filter(
+                CITypeRelation.deleted.is_(False)
+            )
+        )
+        
+        from flask import current_app
+        current_app.logger.info(
+            f"recursive_parents: ci_id={ci_id}, cached {len(valid_type_relations)} valid CITypeRelations, "
+            f"include_siblings={include_siblings}"
+        )
+        
+        # BFS queue: (ci_id, depth)
+        queue = deque([(ci_id, 0)])
+        visited.add(ci_id)
+        
+        while queue:
+            current_id, current_depth = queue.popleft()
+            
+            # Stop if we exceed max depth
+            if max_depth is not None and current_depth >= max_depth:
+                continue
+            
+            # Optimized query: Join with CI table to get type_ids directly (avoid N+1 queries)
+            # Query parents: where current_id is the child (second_ci_id)
+            from sqlalchemy.orm import aliased
+            ParentCI = aliased(CI)
+            
+            parents_query = db.session.query(
+                CIRelation.first_ci_id,
+                CIRelation.relation_type_id,
+                ParentCI.type_id.label('parent_type_id'),
+                CI.type_id.label('child_type_id')
+            ).join(
+                CI, CIRelation.second_ci_id == CI.id
+            ).join(
+                ParentCI, CIRelation.first_ci_id == ParentCI.id
+            ).filter(
+                CIRelation.second_ci_id == current_id,
+                CIRelation.deleted.is_(False)
+            )
+            
+            for parent_id, relation_type_id, parent_type_id, child_type_id in parents_query:
+                # Skip if CITypeRelation for this combination is deleted
+                if (parent_type_id, child_type_id, relation_type_id) not in valid_type_relations:
+                    continue
+                
+                # Skip if already visited (this ensures shortest path and no loops)
+                if parent_id in visited:
+                    continue
+                
+                visited.add(parent_id)
+                parent_depth = current_depth + 1
+                
+                # Add to result (exclude root)
+                if parent_id != ci_id:
+                    result_set.add(parent_id)
+                    depth_map[parent_id] = parent_depth
+                
+                # Add to queue for further exploration
+                queue.append((parent_id, parent_depth))
+                
+                # If include_siblings=True, also get children of this parent (siblings)
+                if include_siblings:
+                    ChildCI = aliased(CI)
+                    siblings_query = db.session.query(
+                        CIRelation.second_ci_id,
+                        CIRelation.relation_type_id,
+                        ParentCI.type_id.label('parent_type_id'),
+                        ChildCI.type_id.label('child_type_id')
+                    ).join(
+                        ParentCI, CIRelation.first_ci_id == ParentCI.id
+                    ).join(
+                        ChildCI, CIRelation.second_ci_id == ChildCI.id
+                    ).filter(
+                        CIRelation.first_ci_id == parent_id,
+                        CIRelation.deleted.is_(False)
+                    )
+                    
+                    for sibling_id, sib_relation_type_id, sib_parent_type_id, sib_child_type_id in siblings_query:
+                        # Skip if CITypeRelation for this combination is deleted
+                        if (sib_parent_type_id, sib_child_type_id, sib_relation_type_id) not in valid_type_relations:
+                            continue
+                        
+                        # Skip if already visited or is the original node
+                        if sibling_id in visited or sibling_id == ci_id:
+                            continue
+                        
+                        visited.add(sibling_id)
+                        
+                        # Add sibling to result (same depth as parent)
+                        result_set.add(sibling_id)
+                        depth_map[sibling_id] = parent_depth
+        
+        # Log depth info for debugging
+        if len(result_set) > 10:  # Only log if suspiciously large
+            from flask import current_app
+            if depth_map:
+                max_depth_found = max(depth_map.values())
+                depth_counts = {}
+                for d in depth_map.values():
+                    depth_counts[d] = depth_counts.get(d, 0) + 1
+                current_app.logger.warning(
+                    f"recursive_parents: ci_id={ci_id}, found {len(result_set)} nodes (parents+siblings), "
+                    f"max_depth={max_depth_found}, depth_distribution={dict(sorted(depth_counts.items()))}"
+                )
+
+        return list(result_set)
+
+    @staticmethod
+    def recursive_graph(ci_id, max_depth=None, direction='both', include_siblings=True):
+        """Get graph from a center node in specified direction(s).
+        
+        Args:
+            ci_id: Center CI ID
+            max_depth: Maximum depth to traverse (None = unlimited)
+            direction: 'up' (parents only), 'down' (children only), 'both' (both directions)
+            include_siblings: If True, when traversing upward, also include children of parents (siblings)
+            
+        Returns:
+            Dictionary with keys:
+            - 'parents': List of parent CI IDs (upward traversal, includes siblings if include_siblings=True)
+            - 'children': List of child CI IDs (downward traversal)
+            - 'all': Set of all CI IDs including center node
+        """
+        result = {
+            'parents': [],
+            'children': [],
+            'all': {ci_id}
+        }
+        
+        if direction in ('up', 'both'):
+            parents = CIRelationManager.recursive_parents(
+                ci_id, 
+                max_depth=max_depth, 
+                include_siblings=include_siblings
+            )
+            result['parents'] = parents
+            result['all'].update(parents)
+        
+        if direction in ('down', 'both'):
+            children = CIRelationManager.recursive_children(ci_id, max_depth=max_depth)
+            result['children'] = children
+            result['all'].update(children)
+        
+        result['all'] = list(result['all'])
+        
+        return result
+
+    @staticmethod
     def _sort_handler(sort_by, query_sql):
 
         if sort_by.startswith("+"):
@@ -1295,6 +1477,78 @@ class CIRelationManager(object):
         result = CIManager.get_cis_by_ids(first_ci_ids)
 
         return numfound, len(first_ci_ids), result
+
+    @staticmethod
+    def get_children_with_impact(first_ci_id):
+        """
+        Get children CIs with impact > 0.
+        Returns list of dicts with ci_id, relation_type_id, and impact score.
+        """
+        from api.models.cmdb import RelationType
+        
+        # Query children (second_cis) with relation_type_id and filter by impact > 0
+        children_query = db.session.query(
+            CI.id.label('ci_id'),
+            CIRelation.relation_type_id,
+            RelationType.first_ci_to_second_ci_impact.label('impact')
+        ).filter(CI.deleted.is_(False)).join(
+            CIRelation, CIRelation.second_ci_id == CI.id
+        ).join(
+            RelationType, RelationType.id == CIRelation.relation_type_id
+        ).filter(
+            CIRelation.first_ci_id == first_ci_id
+        ).filter(CIRelation.deleted.is_(False)).filter(
+            RelationType.first_ci_to_second_ci_impact > 0
+        )
+        
+        results = children_query.all()
+        
+        # Format results
+        children = []
+        for row in results:
+            children.append({
+                'ci_id': row.ci_id,
+                'relation_type_id': row.relation_type_id,
+                'impact': row.impact
+            })
+        
+        return children
+
+    @staticmethod
+    def get_parents_with_impact(second_ci_id):
+        """
+        Get parent CIs with impact > 0.
+        Returns list of dicts with ci_id, relation_type_id, and impact score.
+        """
+        from api.models.cmdb import RelationType
+        
+        # Query parents (first_cis) with relation_type_id and filter by impact > 0
+        parents_query = db.session.query(
+            CI.id.label('ci_id'),
+            CIRelation.relation_type_id,
+            RelationType.second_ci_to_first_ci_impact.label('impact')
+        ).filter(CI.deleted.is_(False)).join(
+            CIRelation, CIRelation.first_ci_id == CI.id
+        ).join(
+            RelationType, RelationType.id == CIRelation.relation_type_id
+        ).filter(
+            CIRelation.second_ci_id == second_ci_id
+        ).filter(CIRelation.deleted.is_(False)).filter(
+            RelationType.second_ci_to_first_ci_impact > 0
+        )
+        
+        results = parents_query.all()
+        
+        # Format results
+        parents = []
+        for row in results:
+            parents.append({
+                'ci_id': row.ci_id,
+                'relation_type_id': row.relation_type_id,
+                'impact': row.impact
+            })
+        
+        return parents
 
     @classmethod
     def get_ancestor_ids(cls, ci_ids, level=1):

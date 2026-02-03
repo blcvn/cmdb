@@ -115,10 +115,24 @@ export default {
         this.$message.info(this.$t('cmdb.ci.noLevel'))
         return
       }
+
+      // Get existing edges to check for duplicates
+      const { edges: existingEdges } = this.canvas.getDataMap()
+      const existingEdgeKeys = new Set()
+      existingEdges.forEach(edge => {
+        const key = `${edge.sourceNode}-${edge.targetNode}`
+        existingEdgeKeys.add(key)
+      })
+
       const ci_types_list = this.ci_types()
+      const addedNodeIds = new Set() // Track newly added node IDs
+
       for (let i = 0; i < res.result.length; i++) {
         const r = res.result[i]
-        if (!this.exsited_ci.includes(r._id)) {
+        const nodeId = `${r._id}`
+        const isNewNode = !this.exsited_ci.includes(r._id)
+
+        if (isNewNode) {
           const _findCiType = ci_types_list.find((item) => item.id === r._type)
           if (_findCiType) {
             const { attributes } = await getCITypeAttributesById(_findCiType.id)
@@ -127,7 +141,7 @@ export default {
             const unique_name = _findUnique?.name
             const unique_alias = _findUnique?.alias || _findUnique?.name || ''
             newNodes.push({
-              id: `${r._id}`,
+              id: nodeId,
               Class: Node,
               title: r.ci_type_alias || r.ci_type,
               name: r.ci_type,
@@ -150,16 +164,30 @@ export default {
                 },
               ],
             })
+            addedNodeIds.add(nodeId)
           }
         }
-        newEdges.push({
-          id: `${r._id}`,
-          source: 'right',
-          target: 'left',
-          sourceNode: side === 'right' ? sourceNode : `${r._id}`,
-          targetNode: side === 'right' ? `${r._id}` : sourceNode,
-          type: 'endpoint',
-        })
+
+        // Only add edge if node is newly added (to avoid duplicate edges for existing nodes)
+        // If node already exists, edge should already be in the graph
+        if (isNewNode && addedNodeIds.has(nodeId)) {
+          const sourceNodeId = side === 'right' ? sourceNode : nodeId
+          const targetNodeId = side === 'right' ? nodeId : sourceNode
+          const edgeKey = `${sourceNodeId}-${targetNodeId}`
+
+          // Check if edge already exists
+          if (!existingEdgeKeys.has(edgeKey)) {
+            newEdges.push({
+              id: `${r._id}-${Date.now()}`, // Use timestamp to ensure unique edge ID
+              source: 'right',
+              target: 'left',
+              sourceNode: sourceNodeId,
+              targetNode: targetNodeId,
+              type: 'endpoint',
+            })
+            existingEdgeKeys.add(edgeKey) // Mark as added to avoid duplicates in same batch
+          }
+        }
       }
 
       const { nodes, edges } = this.canvas.getDataMap()
@@ -189,7 +217,10 @@ export default {
 
       this.topoData = _topoData
       this.canvas.draw(_topoData, {}, () => {})
-      this.exsited_ci = [...new Set([...this.exsited_ci, ...res.result.map((r) => r._id)])]
+
+      // Update exsited_ci with all newly added node IDs
+      const newCiIds = newNodes.map(node => Number(node.id))
+      this.exsited_ci = [...new Set([...this.exsited_ci, ...newCiIds])]
     },
   },
 }

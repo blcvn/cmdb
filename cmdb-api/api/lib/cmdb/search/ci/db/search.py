@@ -374,7 +374,8 @@ class Search(object):
                 "ORDER BY B.ci_id {1} LIMIT {0:d}, {2};".format((self.page - 1) * self.count, sort_type, self.count))
 
     def __sort_by_type(self, sort_type, query_sql):
-        ret_sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT B.ci_id FROM ({0}) AS B {1}"
+        # Include type_id in SELECT to make it compatible with ORDER BY when using DISTINCT
+        ret_sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT B.ci_id, c_cis.type_id FROM ({0}) AS B {1}"
 
         if self.type_id_list and not self.multi_type_has_ci_filter:
             self.query_sql = "SELECT B.ci_id FROM ({0}) AS B {1}".format(

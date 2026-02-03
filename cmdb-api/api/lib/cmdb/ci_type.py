@@ -938,12 +938,16 @@ class CITypeRelationManager(object):
         ci_type_dict.setdefault('level', [0])
         nodes.append(ci_type_dict)
         node_ids.add(ci_type.id)
+        
+        # Track nodes to explore for cross-connections
+        nodes_to_explore = set([ci_type.id])
 
         def _find(_id, lv):
             lv += 1
-            for i in CITypeRelation.get_by(parent_id=_id, to_dict=False):
+            for i in CITypeRelation.get_by(parent_id=_id, to_dict=False, deleted=False):
                 if i.child_id not in node_ids:
                     node_ids.add(i.child_id)
+                    nodes_to_explore.add(i.child_id)  # Mark for cross-connection exploration
                     node = i.child.to_dict()
                     node.setdefault('level', []).append(lv)
                     nodes.append(node)
@@ -964,9 +968,10 @@ class CITypeRelationManager(object):
 
         def _reverse_find(_id, lv):
             lv -= 1
-            for i in CITypeRelation.get_by(child_id=_id, to_dict=False):
+            for i in CITypeRelation.get_by(child_id=_id, to_dict=False, deleted=False):
                 if i.parent_id not in node_ids:
                     node_ids.add(i.parent_id)
+                    nodes_to_explore.add(i.parent_id)  # Mark for cross-connection exploration
                     node = i.parent.to_dict()
                     node.setdefault('level', []).append(lv)
                     nodes.append(node)
@@ -982,13 +987,53 @@ class CITypeRelationManager(object):
                     _reverse_find(i.parent_id, lv)
 
                 for _node in nodes:
-                    if _node['id'] == i.child_id and lv not in _node['level']:
+                    if _node['id'] == i.parent_id and lv not in _node['level']:
                         _node['level'].append(lv)
 
         level = 0
         _reverse_find(ci_type.id, level)
         level = 0
         _find(ci_type.id, level)
+        
+        # Now find ALL nodes that have relations TO/FROM the discovered nodes
+        # This ensures we capture nodes like "Router -> Port Switch" even when
+        # Router is not a parent/child of Switch (the central node)
+        all_relations = CITypeRelation.get_by(to_dict=False, deleted=False)
+        
+        # First pass: Find all nodes that connect to our discovered nodes
+        additional_nodes = set()
+        for rel in all_relations:
+            # If child is in our nodes but parent is not, add the parent
+            if rel.child_id in node_ids and rel.parent_id not in node_ids:
+                additional_nodes.add(rel.parent_id)
+            # If parent is in our nodes but child is not, add the child
+            elif rel.parent_id in node_ids and rel.child_id not in node_ids:
+                additional_nodes.add(rel.child_id)
+        
+        # Add these additional nodes to our graph
+        for node_id in additional_nodes:
+            if node_id not in node_ids:
+                node_ids.add(node_id)
+                ci_type_obj = CITypeCache.get(node_id)
+                if ci_type_obj:
+                    node_dict = ci_type_obj.to_dict()
+                    # These are cross-connected nodes, mark them as level 99 (special level)
+                    node_dict.setdefault('level', []).append(99)
+                    nodes.append(node_dict)
+        
+        # Second pass: Add ALL edges between all discovered nodes (including additional ones)
+        for rel in all_relations:
+            # Only add if both parent and child are in our discovered nodes
+            if rel.parent_id in node_ids and rel.child_id in node_ids:
+                edge_tuple = (rel.parent_id, rel.child_id)
+                if edge_tuple not in edge_tuples:
+                    edges.append(dict(
+                        from_id=rel.parent_id,
+                        to_id=rel.child_id,
+                        text=rel.relation_type.name,
+                        reverse=False
+                    ))
+                    edge_tuples.add(edge_tuple)
 
         return nodes, edges
 
@@ -997,9 +1042,9 @@ class CITypeRelationManager(object):
         # Only get non-deleted relation - don't restore soft-deleted ones
         # Always create new relation instead of restoring
         existed = CITypeRelation.get_by(parent_id=parent_id,
-                                        child_id=child_id,
-                                        to_dict=False,
-                                        first=True)
+                                     child_id=child_id,
+                                     to_dict=False,
+                                     first=True)
         return existed
 
     @staticmethod

@@ -208,49 +208,55 @@ export default {
   width: 100%;
   height: 100%;
   display: flex;
-  min-width: 1000px;
-  overflow-x: auto;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+
   .ops-login-left {
-    position: relative;
     width: 50%;
-    background: url('../../assets/login_bg.png') no-repeat;
-    background-position: center;
-    background-size: cover;
-    > img {
-      width: 80%;
-      position: absolute;
-      top: 60%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    > span {
-      color: @text-color_2;
-      position: absolute;
-      bottom: 10%;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 26px;
-    }
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
   }
+
   .ops-login-right {
     width: 50%;
-    position: relative;
-    padding: 10%;
-    > img {
-      width: 70%;
-      margin-left: 15%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    padding: 40px;
+
+    img {
+      width: 200px;
+      margin-bottom: 40px;
     }
-    .ops-login-right-welcome {
-      text-align: center;
-      color: rgba(29, 57, 196, 1);
-      font-family: 'Inter';
-      font-style: normal;
-      font-weight: 600;
-      font-size: 1.25vw;
-    }
+
     .login-button {
       width: 100%;
     }
+  }
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
 </style>
